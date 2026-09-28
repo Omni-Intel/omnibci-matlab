@@ -6,12 +6,16 @@ MATLAB 接口直接调用固定提交的 Rust `omnibci-sdk` 子模块，控制 E
 
 从 GitHub Releases 下载与系统匹配的 ZIP：
 
-| ZIP 后缀 | MEX 扩展名 | CI 构建所用 MATLAB |
-| --- | --- | --- |
-| `windows-x64` | `mexw64` | R2023a |
-| `linux-x64` | `mexa64` | R2023a |
-| `macos-x64` | `mexmaci64` | R2025a |
-| `macos-arm64` | `mexmaca64` | R2025a |
+| ZIP 后缀 | MEX 扩展名 | 构建版本 | 预编译包最低 MATLAB 版本 | MATLAB 运行验证 |
+| --- | --- | --- | --- | --- |
+| `windows-x64` | `mexw64` | R2023a | R2023a | Windows R2023a：离线测试、USB/BLE 短时采集通过 |
+| `linux-x64` | `mexa64` | R2023a | R2023a | 尚未验证；CI 仅完成 Rust 测试和 MEX 构建 |
+| `macos-x64` | `mexmaci64` | R2025a | R2025a | 尚未验证；CI 仅完成 Rust 测试和 MEX 构建 |
+| `macos-arm64` | `mexmaca64` | R2025a | R2025a | 尚未验证；CI 仅完成 Rust 测试和 MEX 构建 |
+
+以上最低版本是预编译包的兼容性下限，不代表已验证其后的所有 MATLAB 或操作系统版本。MathWorks 建议使用与构建时相同的 MATLAB 版本；旧版构建的 MEX 通常可在新版运行，新版构建的 MEX 在旧版 MATLAB 上运行不受支持。参见 [MEX 版本兼容性](https://www.mathworks.com/help/matlab/matlab_external/version-compatibility.html)。
+
+下载时应匹配正在运行的 MATLAB 架构，可用 `computer('arch')` 和 `mexext` 确认。Apple Silicon 机器上运行 Intel MATLAB 时应选 `macos-x64`；原生 Apple Silicon MATLAB 应选 `macos-arm64`。预编译包需要已安装并有许可证的 MATLAB。
 
 解压后在对应平台的 MATLAB 中运行：
 
@@ -24,7 +28,7 @@ omnibci.Board.version()
 
 ## 构建
 
-需要对应平台的 MATLAB、Rust stable 和本机编译工具链。Apple Silicon 原生 MATLAB 需要 R2023b 或更新版本；发布包的 Apple Silicon MEX 使用 R2025a 构建。获取仓库时初始化 SDK 子模块：
+需要对应平台的 MATLAB、Rust stable 和本机编译工具链。Apple Silicon 原生 MATLAB 从 R2023b 开始提供，但当前 Mac 预编译包的最低版本为 R2025a；更早版本上的源码构建不在当前验证范围内。获取仓库时初始化 SDK 子模块：
 
 ```sh
 git clone --recurse-submodules git@github.com:Omni-Intel/omnibci-matlab.git
