@@ -108,13 +108,13 @@ jobs:
 
   release:
     name: Publish four-platform release
-    if: github.ref_type == 'tag' || inputs.release_tag != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Download all platform archives
+        if: github.ref_type == 'tag' || inputs.release_tag != ''
         uses: actions/download-artifact@v4
         with:
           pattern: omnibci-matlab-*
@@ -122,6 +122,7 @@ jobs:
           path: dist
 
       - name: Publish GitHub Release
+        if: github.ref_type == 'tag' || inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
