@@ -3,9 +3,7 @@
 import argparse
 import platform
 import re
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -44,25 +42,20 @@ def main() -> None:
     dist.mkdir(exist_ok=True)
     archive = dist / f"{name}.zip"
 
-    with tempfile.TemporaryDirectory(prefix="omnibci-package-", dir=dist) as temp:
-        stage = Path(temp) / name
-        for source in (root / "matlab").rglob("*.m"):
-            destination = stage / "matlab" / source.relative_to(root / "matlab")
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
-        destination = stage / "matlab" / "+omnibci" / "private" / f"omnibci_mex.{mex_extension}"
-        shutil.copy2(library, destination)
+    with ZipFile(archive, "w", compression=ZIP_DEFLATED) as output:
+        for source in sorted((root / "matlab").rglob("*.m")):
+            relative = source.relative_to(root / "matlab").as_posix()
+            output.write(source, f"{name}/matlab/{relative}")
+        output.write(library, f"{name}/matlab/+omnibci/private/omnibci_mex.{mex_extension}")
         for source_name, destination_name in (
             ("README.md", "README.md"),
             ("LICENSE", "LICENSE"),
             ("sdk/LICENSE", "SDK-LICENSE"),
         ):
-            shutil.copy2(root / source_name, stage / destination_name)
-        shutil.copytree(root / "examples", stage / "examples")
-        with ZipFile(archive, "w", compression=ZIP_DEFLATED) as output:
-            for source in sorted(stage.rglob("*")):
-                if source.is_file():
-                    output.write(source, source.relative_to(Path(temp)))
+            output.write(root / source_name, f"{name}/{destination_name}")
+        for source in sorted((root / "examples").rglob("*")):
+            if source.is_file():
+                output.write(source, f"{name}/examples/{source.relative_to(root / 'examples').as_posix()}")
     print(f"Created {archive}")
 
 
