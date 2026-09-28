@@ -37,6 +37,21 @@ omnibci.selftest()  % 不连接硬件；检查 MEX 加载、版本查询和离�
 
 发布包已包含对应平台 MEX，无需本地 Rust 编译。仓库的 `vX.Y.Z` 标签触发四个平台的 CI 编译与打包；只有全部成功后才创建 Release。手动运行同一工作流时，留空 `release_tag` 只生成 Actions artifact；填写已有版本标签则从该标签重新构建并发布。CI 访问私有 `omnibci-sdk` 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`。当前 CI 执行 Rust 测试与 MEX 编译；MATLAB 运行测试和设备测试仍需在有许可证的机器上分别验证。Windows USB/BLE 已完成本机验证，Linux 与 macOS 的硬件连接尚未验证。
 
+## MATLAB 内置帮助
+
+公开类、方法及函数的说明包含调用方式、参数默认值、返回字段、单位、异常和示例。添加安装目录中的 `matlab` 路径后可直接查询：
+
+```matlab
+help omnibci
+help omnibci.Board
+help omnibci.Board.connect
+help omnibci.Board.read
+help omnibci.decodeFrames
+help omnibci.selftest
+```
+
+这些帮助注释与 `.m` 文件一起包含在 ZIP 中，不依赖在线文档或额外工具箱。
+
 ## Linux 运行依赖
 
 Linux x64 预编译包在 Ubuntu 22.04 上构建。其他发行版尚未进行 MATLAB 运行验证，不能仅凭 x64 架构相同就认定兼容；系统还必须满足所用 MATLAB 版本的操作系统要求及 MEX 的动态库、glibc 符号版本要求。

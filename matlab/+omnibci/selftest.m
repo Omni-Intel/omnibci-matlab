@@ -1,6 +1,21 @@
 function versions = selftest()
-%SELFTEST Check MEX loading and offline decoding without connecting to hardware.
-%   versions = omnibci.selftest() returns the binding and SDK versions on success.
+%SELFTEST Verify the installed OmniBCI package without connecting to hardware.
+%   omnibci.selftest() loads the MEX and checks version reporting, empty
+%   batches, valid and corrupted USB frames, CRC handling, signed ADC counts,
+%   gain scaling and rejection of an invalid endpoint. It prints a success
+%   message only after all checks pass. No device is scanned or opened.
+%
+%   V = omnibci.selftest() additionally returns a scalar struct containing
+%   the loaded binding and sdk versions as character vectors.
+%   Failed checks raise MATLAB assertion errors; MEX installation or loading
+%   failures preserve the diagnostic identifiers described in README.md.
+%   A successful self-test does not verify USB/BLE hardware connectivity.
+%
+%   Example:
+%     versions = omnibci.selftest();
+%     disp(versions);
+%
+%   See also omnibci.Board.version, omnibci.decodeFrames.
 versions = omnibci.Board.version();
 assert(isfield(versions, 'binding') && isfield(versions, 'sdk'));
 assert(~isempty(versions.binding) && ~isempty(versions.sdk));
