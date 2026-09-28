@@ -7,7 +7,9 @@ fn main() {
         println!("cargo:rustc-link-search=native={root}/extern/lib/win64/microsoft");
         #[cfg(target_os = "linux")]
         println!("cargo:rustc-link-search=native={root}/bin/glnxa64");
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
         println!("cargo:rustc-link-search=native={root}/bin/maci64");
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        println!("cargo:rustc-link-search=native={root}/bin/maca64");
     }
 }

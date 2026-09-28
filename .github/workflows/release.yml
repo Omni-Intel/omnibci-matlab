@@ -7,11 +7,28 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  windows-x64:
-    runs-on: windows-latest
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+            matlab: R2023a
+          - platform: linux-x64
+            runner: ubuntu-22.04
+            matlab: R2023a
+          - platform: macos-x64
+            runner: macos-15-intel
+            matlab: R2025a
+          - platform: macos-arm64
+            runner: macos-15
+            matlab: R2025a
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out MATLAB SDK and private Rust SDK
         uses: actions/checkout@v4
@@ -19,6 +36,17 @@ jobs:
           submodules: recursive
           token: ${{ secrets.SUBMODULES_READ_TOKEN }}
           persist-credentials: false
+
+      - name: Install Linux native dependencies
+        if: matrix.platform == 'linux-x64'
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev libdbus-1-dev pkg-config
+
+      - name: Install Apple silicon Java runtime
+        if: matrix.platform == 'macos-arm64'
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: '11'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -29,6 +57,7 @@ jobs:
         shell: pwsh
         run: |
           $manifest = cargo metadata --locked --no-deps --format-version 1 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $package = $manifest.packages | Where-Object { $_.name -eq 'omnibci-matlab-native' }
           if (-not $package) { throw 'MATLAB SDK package not found' }
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$($package.version)") {
@@ -36,52 +65,64 @@ jobs:
           }
           "SDK_VERSION=$($package.version)" >> $env:GITHUB_ENV
 
-      - name: Install MATLAB R2023a
+      - name: Install MATLAB ${{ matrix.matlab }}
+        id: matlab
         uses: matlab-actions/setup-matlab@v3
         with:
-          release: R2023a
-
-      - name: Set MATLAB_ROOT for Rust linking
-        shell: pwsh
-        run: |
-          $matlabBin = Split-Path (Get-Command matlab.exe).Source -Parent
-          $matlabRoot = Split-Path $matlabBin -Parent
-          if (-not (Test-Path (Join-Path $matlabRoot 'extern/lib/win64/microsoft/libmex.lib'))) {
-            throw "MATLAB MEX import library missing from $matlabRoot"
-          }
-          "MATLAB_ROOT=$matlabRoot" >> $env:GITHUB_ENV
+          release: ${{ matrix.matlab }}
 
       - name: Test and build native MEX
         shell: pwsh
+        env:
+          MATLAB_ROOT: ${{ steps.matlab.outputs.matlabroot }}
         run: |
+          if (-not (Test-Path -LiteralPath $env:MATLAB_ROOT)) { throw 'MATLAB installation not found' }
           cargo test --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked -- -D warnings
+          cargo clippy --locked --features mex -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo build --locked --release --features mex
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Package MATLAB SDK
         shell: pwsh
-        run: ./scripts/package_release.ps1 -Version $env:SDK_VERSION
+        run: |
+          python scripts/package_release.py --version $env:SDK_VERSION --platform '${{ matrix.platform }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Save build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: omnibci-matlab-windows-x64
+          name: omnibci-matlab-${{ matrix.platform }}
           path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish four-platform release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all platform archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: omnibci-matlab-*
+          merge-multiple: true
+          path: dist
 
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag'
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $archive = Join-Path dist "omnibci-matlab-$env:GITHUB_REF_NAME-windows-x64.zip"
-          gh release view $env:GITHUB_REF_NAME *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:GITHUB_REF_NAME $archive --clobber
-          } else {
-            gh release create $env:GITHUB_REF_NAME $archive --verify-tag --title "OmniBCI MATLAB SDK $env:GITHUB_REF_NAME" --generate-notes
-          }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          set -euo pipefail
+          for platform in windows-x64 linux-x64 macos-x64 macos-arm64; do
+            test -f "dist/omnibci-matlab-${GITHUB_REF_NAME}-${platform}.zip"
+          done
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/*.zip --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/*.zip --verify-tag \
+              --title "OmniBCI MATLAB SDK ${GITHUB_REF_NAME}" --generate-notes
+          fi

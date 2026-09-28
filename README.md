@@ -1,21 +1,30 @@
 # OmniBCI MATLAB SDK
 
-MATLAB R2023a 接口，直接调用固定提交的 Rust `omnibci-sdk` 子模块，控制 ESP32-C3 + ADS1299 设备的 USB CDC / reliable BLE 采集。无需 Python 或单独的 C++ MEX 编译器；构建时 Rust 直接链接 MATLAB 提供的 MEX 库。当前支持 Windows x64 本机验证，其他平台的构建路径已提供但尚未验证。
+MATLAB 接口直接调用固定提交的 Rust `omnibci-sdk` 子模块，控制 ESP32-C3 + ADS1299 设备的 USB CDC / reliable BLE 采集。无需 Python 或单独的 C++ MEX 编译器；构建时 Rust 直接链接 MATLAB 提供的 MEX 库。
 
 ## 安装已发布版本
 
-从 GitHub Releases 下载 `omnibci-matlab-vX.Y.Z-windows-x64.zip`，解压后在 MATLAB R2023a 中运行：
+从 GitHub Releases 下载与系统匹配的 ZIP：
+
+| ZIP 后缀 | MEX 扩展名 | CI 构建所用 MATLAB |
+| --- | --- | --- |
+| `windows-x64` | `mexw64` | R2023a |
+| `linux-x64` | `mexa64` | R2023a |
+| `macos-x64` | `mexmaci64` | R2025a |
+| `macos-arm64` | `mexmaca64` | R2025a |
+
+解压后在对应平台的 MATLAB 中运行：
 
 ```matlab
-addpath('解压目录/omnibci-matlab-vX.Y.Z-windows-x64/matlab')
+addpath(fullfile('解压目录', 'omnibci-matlab-vX.Y.Z-平台后缀', 'matlab'))
 omnibci.Board.version()
 ```
 
-发布包已包含 Windows x64 MEX，无需本地 Rust 编译。仓库的 `vX.Y.Z` 标签触发 Windows CI 编译、测试、打包和 Release；手动运行同一工作流只生成 Actions artifact。CI 访问私有 `omnibci-sdk` 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`。私有仓库中的 MATLAB 运行测试还需要 `MLM_LICENSE_TOKEN` 或有许可证的自托管 runner；当前 CI 执行 Rust 测试与 MEX 编译，本机 MATLAB 离线及设备测试另行验证。
+发布包已包含对应平台 MEX，无需本地 Rust 编译。仓库的 `vX.Y.Z` 标签触发四个平台的 CI 编译与打包；只有全部成功后才创建 Release。手动运行同一工作流只生成 Actions artifact。CI 访问私有 `omnibci-sdk` 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`。当前 CI 执行 Rust 测试与 MEX 编译；MATLAB 运行测试和设备测试仍需在有许可证的机器上分别验证。Windows USB/BLE 已完成本机验证，Linux 与 macOS 的硬件连接尚未验证。
 
 ## 构建
 
-需要 MATLAB R2023a、Rust stable 和 MSVC Rust target。获取仓库时初始化 SDK 子模块：
+需要对应平台的 MATLAB、Rust stable 和本机编译工具链。Apple Silicon 原生 MATLAB 需要 R2023b 或更新版本；发布包的 Apple Silicon MEX 使用 R2025a 构建。获取仓库时初始化 SDK 子模块：
 
 ```sh
 git clone --recurse-submodules git@github.com:Omni-Intel/omnibci-matlab.git

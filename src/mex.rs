@@ -10,7 +10,8 @@ pub struct MxArray {
     _opaque: [u8; 0],
 }
 
-#[link(name = "libmx")]
+#[cfg_attr(target_os = "windows", link(name = "libmx"))]
+#[cfg_attr(not(target_os = "windows"), link(name = "mx"))]
 unsafe extern "C" {
     fn mxGetClassID(array: *const MxArray) -> i32;
     fn mxGetNumberOfElements(array: *const MxArray) -> usize;
