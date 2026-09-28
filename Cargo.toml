@@ -1,0 +1,18 @@
+[package]
+name = "omnibci-matlab-native"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "BSD-3-Clause"
+
+[lib]
+name = "omnibci_matlab_native"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+mex = []
+
+[dependencies]
+omnibci-sdk = { path = "sdk", version = "0.1.2", features = ["esp32"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

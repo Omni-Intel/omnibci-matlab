@@ -1,0 +1,6 @@
+/target/
+/matlab/+omnibci/private/*.mex*
+/matlab/+omnibci/private/*.dll
+/matlab/+omnibci/private/*.so
+/matlab/+omnibci/private/*.dylib
+*.asv
