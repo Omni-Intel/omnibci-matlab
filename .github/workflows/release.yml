@@ -2,6 +2,11 @@ name: Build and release MATLAB SDK
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing version tag to build and publish (leave blank for build only)
+        required: false
+        type: string
   push:
     tags:
       - 'v*.*.*'
@@ -34,6 +39,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
           token: ${{ secrets.SUBMODULES_READ_TOKEN }}
           persist-credentials: false
 
@@ -55,13 +61,16 @@ jobs:
 
       - name: Check release version
         shell: pwsh
+        env:
+          REQUESTED_TAG: ${{ inputs.release_tag }}
         run: |
           $manifest = cargo metadata --locked --no-deps --format-version 1 | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $package = $manifest.packages | Where-Object { $_.name -eq 'omnibci-matlab-native' }
           if (-not $package) { throw 'MATLAB SDK package not found' }
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$($package.version)") {
-            throw "Tag $env:GITHUB_REF_NAME does not match Cargo version $($package.version)"
+          $releaseTag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { $env:REQUESTED_TAG }
+          if ($releaseTag -and $releaseTag -ne "v$($package.version)") {
+            throw "Tag $releaseTag does not match Cargo version $($package.version)"
           }
           "SDK_VERSION=$($package.version)" >> $env:GITHUB_ENV
 
@@ -99,7 +108,7 @@ jobs:
 
   release:
     name: Publish four-platform release
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || inputs.release_tag != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -115,14 +124,16 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
           for platform in windows-x64 linux-x64 macos-x64 macos-arm64; do
-            test -f "dist/omnibci-matlab-${GITHUB_REF_NAME}-${platform}.zip"
+            test -f "dist/omnibci-matlab-${RELEASE_TAG}-${platform}.zip"
           done
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" dist/*.zip --clobber
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" dist/*.zip --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/*.zip --verify-tag \
-              --title "OmniBCI MATLAB SDK ${GITHUB_REF_NAME}" --generate-notes
+            gh release create "${RELEASE_TAG}" dist/*.zip --verify-tag \
+              --title "OmniBCI MATLAB SDK ${RELEASE_TAG}" --generate-notes
           fi
