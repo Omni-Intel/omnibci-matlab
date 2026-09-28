@@ -21,8 +21,19 @@ MATLAB 接口直接调用固定提交的 Rust `omnibci-sdk` 子模块，控制 E
 
 ```matlab
 addpath(fullfile('解压目录', 'omnibci-matlab-vX.Y.Z-平台后缀', 'matlab'))
-omnibci.Board.version()
+omnibci.selftest()  % 不连接硬件；检查 MEX 加载、版本查询和离线解码
 ```
+
+`selftest` 成功时打印通过信息，并返回 MATLAB 绑定和 Rust SDK 的版本。它覆盖完整帧解码、CRC 错误、符号扩展、增益缩放及无效 endpoint 拒绝；不扫描或连接设备，不替代硬件采集测试。`addpath` 仅对当前 MATLAB 会话生效，下次启动后需重新添加该目录。
+
+安装失败时，根据异常标识处理：
+
+| 异常标识 | 处理方法 |
+| --- | --- |
+| `omnibci:PlatformMismatch` | 包内只有其他平台的 MEX；按当前 MATLAB 的 `computer('arch')` 和 `mexext` 重新下载 |
+| `omnibci:MissingBinary` | 安装目录缺少 MEX；重新下载并完整解压对应平台 ZIP |
+| `omnibci:NotBuilt` | 当前使用源码仓库且尚未构建；按开发文档构建，或安装预编译 ZIP |
+| `omnibci:NativeLoadFailed` | MEX 存在但无法加载；检查最低 MATLAB 版本及运行库，原始加载错误保留在异常中 |
 
 发布包已包含对应平台 MEX，无需本地 Rust 编译。仓库的 `vX.Y.Z` 标签触发四个平台的 CI 编译与打包；只有全部成功后才创建 Release。手动运行同一工作流时，留空 `release_tag` 只生成 Actions artifact；填写已有版本标签则从该标签重新构建并发布。CI 访问私有 `omnibci-sdk` 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`。当前 CI 执行 Rust 测试与 MEX 编译；MATLAB 运行测试和设备测试仍需在有许可证的机器上分别验证。Windows USB/BLE 已完成本机验证，Linux 与 macOS 的硬件连接尚未验证。
 
@@ -43,30 +54,13 @@ sudo apt-get install libudev1 libdbus-1-3 libgcc-s1 libc6
 
 连接设备还要求当前用户可访问串口设备，BLE 要求可用的蓝牙适配器、BlueZ 服务及 D-Bus 访问权限。这些连接条件不等同于 MEX 加载依赖；无需连接硬件即可执行离线自检。
 
-## 构建
+## 从源码构建
 
-需要对应平台的 MATLAB、Rust stable 和本机编译工具链。Apple Silicon 原生 MATLAB 从 R2023b 开始提供，但当前 Mac 预编译包的最低版本为 R2025a；更早版本上的源码构建不在当前验证范围内。获取仓库时初始化 SDK 子模块：
-
-```sh
-git clone --recurse-submodules git@github.com:Omni-Intel/omnibci-matlab.git
-```
-
-在 MATLAB 中运行：
-
-```matlab
-cd('D:/workspace/omnibci-matlab')
-build_omnibci
-addpath(fullfile(pwd, 'matlab'))
-addpath(fullfile(pwd, 'tests'))
-test_offline
-```
-
-`build_omnibci` 使用 `cargo build --offline --locked --release --features mex`；首次构建如缺少 Cargo 依赖，请先在可联网环境运行 `cargo fetch --locked`。生成的 MEX 位于 `matlab/+omnibci/private`，不会被 Git 提交。修改 Rust 桥接代码后须重新运行构建，并在 MATLAB 中先 `clear mex`，再覆盖已有 MEX 文件。
+需要自行编译时，请克隆包含子模块的完整仓库，并按照 [源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/master/DEVELOPMENT.md) 操作。预编译 ZIP 不包含 Rust 源码、构建脚本或仓库测试目录。
 
 ## 连接和采集
 
 ```matlab
-addpath('D:/workspace/omnibci-matlab/matlab')
 ports = omnibci.Board.discover("serial")  % 返回 serial://... 字符串
 ble = omnibci.Board.discover("ble", 10)     % 返回含 endpoint/name/RSSI 的结构
 
@@ -96,18 +90,6 @@ assert(board.getConfig().verified);
 
 `batch` 含 `eeg_uv`、`raw_counts`、`sequence`、`valid`、`mode`、`status`、`sample_indices`、`generation`、`sample_rate_hz`、`sample_time_s` 和 `received_age_s`。`received_age_s` 是从 SDK 最后一批主机接收时间到调用返回的经过时间，不是硬件采样时间。离线完整 USB 帧可用 `omnibci.decodeFrames(uint8(bytes), gains)` 解码；该函数不保留跨调用的不完整帧。
 
-## 验证
-
-```matlab
-addpath('D:/workspace/omnibci-matlab/matlab')
-addpath('D:/workspace/omnibci-matlab/tests')
-test_offline
-```
-
-Rust 可运行 `cargo test --locked` 和 `cargo clippy --locked -- -D warnings`。离线测试覆盖 MATLAB 到 Rust 的 MEX 调用、帧 CRC、符号扩展、增益缩放与无效 endpoint。本机已用目标硬件和固件完成 USB 与 BLE 的 3 秒采集验证；长时采集和停止尾包仍需验收。
-
-本机连接板子后可运行 `test_hardware("usb")` 或 `test_hardware("ble")`。USB 脚本使用 COM8；BLE 从扫描结果中选择名为 `OmniBCI` 的设备。测试会回写当前配置、连续读取 3 秒，并检查数据形状、数量与停止后的状态。运行前应关闭其他占用设备的程序。
-
 ## 许可证
 
-本仓库采用 BSD-3-Clause；SDK 子模块许可证见 `sdk/LICENSE`。
+本项目采用 BSD-3-Clause，见 `LICENSE`。预编译 ZIP 内的 Rust SDK 许可证为 `SDK-LICENSE`；源码仓库中对应文件为 `sdk/LICENSE`。
