@@ -71,15 +71,6 @@ jobs:
         with:
           release: ${{ matrix.matlab }}
 
-      - name: Inspect macOS MATLAB Matrix API symbols
-        if: startsWith(matrix.platform, 'macos-')
-        shell: bash
-        env:
-          MATLAB_ROOT: ${{ steps.matlab.outputs.matlabroot }}
-        run: |
-          if [[ "${{ matrix.platform }}" == 'macos-arm64' ]]; then arch=maca64; else arch=maci64; fi
-          nm -gU "$MATLAB_ROOT/bin/$arch/libmx.dylib" | grep -E 'mx(CreateNumericMatrix|CreateUninitNumericMatrix|GetClassID|GetData)' || true
-
       - name: Test and build native MEX
         shell: pwsh
         env:

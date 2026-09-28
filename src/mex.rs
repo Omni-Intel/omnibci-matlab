@@ -16,6 +16,8 @@ unsafe extern "C" {
     fn mxGetClassID(array: *const MxArray) -> i32;
     fn mxGetNumberOfElements(array: *const MxArray) -> usize;
     fn mxGetData(array: *const MxArray) -> *mut c_void;
+    // macOS libmx exports the R2018a C Matrix API entry point with this suffix.
+    #[cfg_attr(target_os = "macos", link_name = "mxCreateNumericMatrix_800")]
     fn mxCreateNumericMatrix(
         rows: usize,
         cols: usize,
