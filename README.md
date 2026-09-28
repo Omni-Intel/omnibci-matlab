@@ -26,6 +26,23 @@ omnibci.Board.version()
 
 发布包已包含对应平台 MEX，无需本地 Rust 编译。仓库的 `vX.Y.Z` 标签触发四个平台的 CI 编译与打包；只有全部成功后才创建 Release。手动运行同一工作流时，留空 `release_tag` 只生成 Actions artifact；填写已有版本标签则从该标签重新构建并发布。CI 访问私有 `omnibci-sdk` 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`。当前 CI 执行 Rust 测试与 MEX 编译；MATLAB 运行测试和设备测试仍需在有许可证的机器上分别验证。Windows USB/BLE 已完成本机验证，Linux 与 macOS 的硬件连接尚未验证。
 
+## Linux 运行依赖
+
+Linux x64 预编译包在 Ubuntu 22.04 上构建。其他发行版尚未进行 MATLAB 运行验证，不能仅凭 x64 架构相同就认定兼容；系统还必须满足所用 MATLAB 版本的操作系统要求及 MEX 的动态库、glibc 符号版本要求。
+
+当前 MEX 的直接动态库依赖为：MATLAB 提供的 `libmx.so`；系统提供的 `libudev.so.1`、`libdbus-1.so.3`、`libgcc_s.so.1`、`libm.so.6`、`libc.so.6` 和 `ld-linux-x86-64.so.2`。系统库不随 ZIP 分发。在 Ubuntu/Debian 上可安装运行依赖：
+
+```sh
+sudo apt-get update
+sudo apt-get install libudev1 libdbus-1-3 libgcc-s1 libc6
+```
+
+`libmx.so` 应由目标机器的 MATLAB 安装提供，不要从构建机器复制 MATLAB 库到 SDK 目录。Linux 源码构建另需 `libudev-dev`、`libdbus-1-dev` 和 `pkg-config`；这些开发包不是使用预编译包的必要条件。
+
+遇到 `Invalid MEX-file` 时，可对解压后的 `matlab/+omnibci/private/omnibci_mex.mexa64` 运行 `ldd` 检查缺失的系统库。普通终端中的 `ldd` 可能找不到 MATLAB 私有目录里的 `libmx.so`；应结合 MATLAB 内的实际加载结果判断。若出现 `GLIBC_x.y not found`，需要兼容的系统或在目标环境重新构建。
+
+连接设备还要求当前用户可访问串口设备，BLE 要求可用的蓝牙适配器、BlueZ 服务及 D-Bus 访问权限。这些连接条件不等同于 MEX 加载依赖；无需连接硬件即可执行离线自检。
+
 ## 构建
 
 需要对应平台的 MATLAB、Rust stable 和本机编译工具链。Apple Silicon 原生 MATLAB 从 R2023b 开始提供，但当前 Mac 预编译包的最低版本为 R2025a；更早版本上的源码构建不在当前验证范围内。获取仓库时初始化 SDK 子模块：
