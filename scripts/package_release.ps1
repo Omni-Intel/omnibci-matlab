@@ -35,6 +35,4 @@ Copy-Item -LiteralPath (Join-Path $root 'examples') -Destination $stage -Recurse
 
 $archive = Join-Path $dist "$name.zip"
 Compress-Archive -LiteralPath $stage -DestinationPath $archive -Force
-$hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-Set-Content -LiteralPath (Join-Path $dist "$name.sha256") -Value "$hash  $name.zip" -Encoding ascii
 Write-Host "Created $archive"

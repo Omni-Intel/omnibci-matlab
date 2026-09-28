@@ -69,9 +69,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: omnibci-matlab-windows-x64
-          path: |
-            dist/*.zip
-            dist/*.sha256
+          path: dist/*.zip
 
       - name: Publish GitHub Release
         if: github.ref_type == 'tag'
@@ -80,11 +78,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $archive = Join-Path dist "omnibci-matlab-$env:GITHUB_REF_NAME-windows-x64.zip"
-          $checksum = Join-Path dist "omnibci-matlab-$env:GITHUB_REF_NAME-windows-x64.sha256"
           gh release view $env:GITHUB_REF_NAME *> $null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:GITHUB_REF_NAME $archive $checksum --clobber
+            gh release upload $env:GITHUB_REF_NAME $archive --clobber
           } else {
-            gh release create $env:GITHUB_REF_NAME $archive $checksum --verify-tag --title "OmniBCI MATLAB SDK $env:GITHUB_REF_NAME" --generate-notes
+            gh release create $env:GITHUB_REF_NAME $archive --verify-tag --title "OmniBCI MATLAB SDK $env:GITHUB_REF_NAME" --generate-notes
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
