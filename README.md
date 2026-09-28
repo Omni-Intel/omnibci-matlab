@@ -2,6 +2,17 @@
 
 MATLAB R2023a 接口，直接调用固定提交的 Rust `omnibci-sdk` 子模块，控制 ESP32-C3 + ADS1299 设备的 USB CDC / reliable BLE 采集。无需 Python 或单独的 C++ MEX 编译器；构建时 Rust 直接链接 MATLAB 提供的 MEX 库。当前支持 Windows x64 本机验证，其他平台的构建路径已提供但尚未验证。
 
+## 安装已发布版本
+
+从 GitHub Releases 下载 `omnibci-matlab-vX.Y.Z-windows-x64.zip`，解压后在 MATLAB R2023a 中运行：
+
+```matlab
+addpath('解压目录/omnibci-matlab-vX.Y.Z-windows-x64/matlab')
+omnibci.Board.version()
+```
+
+发布包已包含 Windows x64 MEX，无需本地 Rust 编译。仓库的 `vX.Y.Z` 标签触发 Windows CI 编译、测试、打包和 Release；手动运行同一工作流只生成 Actions artifact。CI 访问私有 `omnibci-sdk` 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`。私有仓库中的 MATLAB 运行测试还需要 `MLM_LICENSE_TOKEN` 或有许可证的自托管 runner；当前 CI 执行 Rust 测试与 MEX 编译，本机 MATLAB 离线及设备测试另行验证。
+
 ## 构建
 
 需要 MATLAB R2023a、Rust stable 和 MSVC Rust target。获取仓库时初始化 SDK 子模块：
@@ -63,7 +74,7 @@ addpath('D:/workspace/omnibci-matlab/tests')
 test_offline
 ```
 
-Rust 可运行 `cargo test --locked` 和 `cargo clippy --locked -- -D warnings`。离线测试覆盖 MATLAB 到 Rust 的 MEX 调用、帧 CRC、符号扩展、增益缩放与无效 endpoint。尚需用目标硬件与固件进行 USB、BLE、长时采集及停止尾包验收。
+Rust 可运行 `cargo test --locked` 和 `cargo clippy --locked -- -D warnings`。离线测试覆盖 MATLAB 到 Rust 的 MEX 调用、帧 CRC、符号扩展、增益缩放与无效 endpoint。本机已用目标硬件和固件完成 USB 与 BLE 的 3 秒采集验证；长时采集和停止尾包仍需验收。
 
 本机连接板子后可运行 `test_hardware("usb")` 或 `test_hardware("ble")`。USB 脚本使用 COM8；BLE 从扫描结果中选择名为 `OmniBCI` 的设备。测试会回写当前配置、连续读取 3 秒，并检查数据形状、数量与停止后的状态。运行前应关闭其他占用设备的程序。
 

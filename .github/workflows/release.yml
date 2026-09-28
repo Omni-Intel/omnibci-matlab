@@ -1,0 +1,90 @@
+name: Build and release MATLAB SDK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - name: Check out MATLAB SDK and private Rust SDK
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULES_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Check release version
+        shell: pwsh
+        run: |
+          $manifest = cargo metadata --locked --no-deps --format-version 1 | ConvertFrom-Json
+          $package = $manifest.packages | Where-Object { $_.name -eq 'omnibci-matlab-native' }
+          if (-not $package) { throw 'MATLAB SDK package not found' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$($package.version)") {
+            throw "Tag $env:GITHUB_REF_NAME does not match Cargo version $($package.version)"
+          }
+          "SDK_VERSION=$($package.version)" >> $env:GITHUB_ENV
+
+      - name: Install MATLAB R2023a
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2023a
+
+      - name: Set MATLAB_ROOT for Rust linking
+        shell: pwsh
+        run: |
+          $matlabBin = Split-Path (Get-Command matlab.exe).Source -Parent
+          $matlabRoot = Split-Path $matlabBin -Parent
+          if (-not (Test-Path (Join-Path $matlabRoot 'extern/lib/win64/microsoft/libmex.lib'))) {
+            throw "MATLAB MEX import library missing from $matlabRoot"
+          }
+          "MATLAB_ROOT=$matlabRoot" >> $env:GITHUB_ENV
+
+      - name: Test and build native MEX
+        shell: pwsh
+        run: |
+          cargo test --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --release --features mex
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package MATLAB SDK
+        shell: pwsh
+        run: ./scripts/package_release.ps1 -Version $env:SDK_VERSION
+
+      - name: Save build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnibci-matlab-windows-x64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Join-Path dist "omnibci-matlab-$env:GITHUB_REF_NAME-windows-x64.zip"
+          $checksum = Join-Path dist "omnibci-matlab-$env:GITHUB_REF_NAME-windows-x64.sha256"
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:GITHUB_REF_NAME $archive $checksum --clobber
+          } else {
+            gh release create $env:GITHUB_REF_NAME $archive $checksum --verify-tag --title "OmniBCI MATLAB SDK $env:GITHUB_REF_NAME" --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
