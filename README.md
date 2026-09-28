@@ -65,6 +65,8 @@ test_offline
 
 Rust 可运行 `cargo test --locked` 和 `cargo clippy --locked -- -D warnings`。离线测试覆盖 MATLAB 到 Rust 的 MEX 调用、帧 CRC、符号扩展、增益缩放与无效 endpoint。尚需用目标硬件与固件进行 USB、BLE、长时采集及停止尾包验收。
 
+本机连接板子后可运行 `test_hardware("usb")` 或 `test_hardware("ble")`。USB 脚本使用 COM8；BLE 从扫描结果中选择名为 `OmniBCI` 的设备。测试会回写当前配置、连续读取 3 秒，并检查数据形状、数量与停止后的状态。运行前应关闭其他占用设备的程序。
+
 ## 许可证
 
 本仓库采用 BSD-3-Clause；SDK 子模块许可证见 `sdk/LICENSE`。

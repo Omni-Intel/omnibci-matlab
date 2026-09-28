@@ -13,8 +13,25 @@ batch.sequence = uint32(batch.sequence(:));
 batch.valid = logical(batch.valid(:));
 batch.mode = uint8(batch.mode(:));
 if isfield(batch, 'sample_indices')
-    batch.sample_indices = uint64(string(batch.sample_indices(:)));
-    batch.generation = uint64(string(batch.generation));
+    batch.sample_indices = parseUint64Decimal(batch.sample_indices(:));
+    batch.generation = parseUint64Decimal(batch.generation);
     batch.sample_time_s = double(batch.sample_indices) ./ double(batch.sample_rate_hz);
+end
+end
+
+function numbers = parseUint64Decimal(values)
+% MATLAB R2023a does not cast decimal strings directly to uint64.
+values = string(values);
+numbers = zeros(size(values), 'uint64');
+for k = 1:numel(values)
+    digits = char(values(k));
+    if isempty(digits) || any(digits < '0' | digits > '9')
+        error('omnibci:InvalidData', 'Invalid uint64 value returned by the SDK.');
+    end
+    number = uint64(0);
+    for digit = digits
+        number = number * uint64(10) + uint64(digit - '0');
+    end
+    numbers(k) = number;
 end
 end
