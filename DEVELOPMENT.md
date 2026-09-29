@@ -49,13 +49,3 @@ test_hardware("ble")  % 扫描名为 OmniBCI 的设备
 ```
 
 测试回写当前配置、连续读取 3 秒，检查数据形状、数量和停止后的状态。Windows R2023a 的 USB/BLE 短时采集已通过；长时采集、停止尾包及 Linux/macOS 硬件连接尚未验证。
-
-## 发布
-
-`.github/workflows/release.yml` 为四个平台执行 Rust 测试、Clippy、MEX 构建和 ZIP 打包；全部成功后才发布。CI 读取私有 SDK 子模块需要仓库 Secret `SUBMODULES_READ_TOKEN`，不执行 MATLAB 运行测试或设备测试。
-
-- 推送 `vX.Y.Z` 标签触发发布，标签须匹配 `Cargo.toml` 的版本。
-- 手动运行时，留空 `release_tag` 只生成 Actions artifact；填写已有版本标签则从该标签重新构建并发布。
-- 同名 Release 已存在时，工作流覆盖对应 ZIP。
-
-`scripts/package_release.py` 打包 MATLAB 文件、MEX、示例、README 和许可证；开发文档、Rust 源码及测试不随 ZIP 分发。

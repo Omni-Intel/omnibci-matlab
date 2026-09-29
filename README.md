@@ -98,7 +98,3 @@ help omnibci.selftest
 ## 源码构建
 
 见 [源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/master/DEVELOPMENT.md)。预编译 ZIP 包含 MEX，无需 Rust 或 C++ MEX 编译器；Rust 源码、构建脚本和仓库测试需从 Git 仓库获取。
-
-## 许可证
-
-BSD-3-Clause，见 `LICENSE`。Rust SDK 许可证位于发布包的 `SDK-LICENSE` 或源码仓库的 `sdk/LICENSE`。
