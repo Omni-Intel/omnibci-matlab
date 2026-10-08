@@ -105,6 +105,7 @@ jobs:
           name: omnibci-matlab-${{ matrix.platform }}
           path: dist/*.zip
           if-no-files-found: error
+          retention-days: 1
 
   release:
     name: Publish four-platform release
