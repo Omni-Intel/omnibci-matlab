@@ -1,22 +1,34 @@
 classdef Board < handle
-    %BOARD Acquire eight-channel ESP32/ADS1299 data over USB CDC or BLE.
-    %   B = omnibci.Board.connect(ENDPOINT) opens a device and returns a
-    %   handle object. Use connect rather than calling the constructor.
+    %BOARD Acquire ESP32/ADS1299 or STM32 32-channel data over USB or BLE.
+    %   B = omnibci.Board.connect(ENDPOINT) opens an ESP32 device and returns
+    %   a handle object. Use connect rather than calling the constructor.
     %   Methods block until completion or timeout; timeouts are in seconds.
     %   Keep reading during acquisition to avoid overflowing the SDK queue.
     %   Only one controlling process may own the device at a time.
     %
+    %   Device types:
+    %     "esp32" - Eight-channel ADS1299, USB CDC or reliable BLE. Default.
+    %     "stm32" - 32-channel STM32 V3 over USB, ESB dongle or E73 BLE.
+    %               Fixed 250 Hz and SRB1; no SRB2 or sample-rate control.
+    %               This unreleased dev/32ch source adaptation provides no
+    %               wireless mode switch and no automatic reconnect. It has
+    %               not been built or tested in this branch and has not
+    %               completed hardware acceptance testing; existing ESP32
+    %               validation does not cover it.
+    %
     %   Board Properties:
-    %     Endpoint - Read-only endpoint used to open the connection.
+    %     Endpoint   - Read-only endpoint used to open the connection.
+    %     DeviceType - Read-only "esp32" or "stm32" selected at connect.
     %
     %   Board Methods:
     %     connect   - Open a device and wait for configuration readback.
     %     discover  - List serial ports or scan for BLE devices.
-    %     version   - Query MATLAB binding and Rust SDK versions.
+    %     version   - Query binding, SDK version and SDK revision.
     %     snapshot  - Read cached session state and diagnostic counters.
-    %     getConfig - Read the cached frontend configuration.
-    %     configure - Apply and verify frontend configuration while Ready.
-    %     start     - Start acquisition and wait for the first samples.
+    %     getConfig - Read the cached frontend or STM32 configuration.
+    %     configure - Apply and verify device configuration while Ready.
+    %     start     - Start acquisition; STM32 waits for the firmware START
+    %                 acknowledgement, ESP32 for streaming readiness.
     %     read      - Receive one variable-size sample batch.
     %     stop      - Stop acquisition while preserving queued samples.
     %     close     - Close the connection and release native resources.
@@ -25,7 +37,7 @@ classdef Board < handle
     %   Example:
     %     ports = omnibci.Board.discover("serial");
     %     % Select the port belonging to your OmniBCI board.
-    %     b = omnibci.Board.connect(ports(1));
+    %     b = omnibci.Board.connect(ports(1), 15, "esp32");
     %     cleanup = onCleanup(@() delete(b));
     %     b.start();
     %     batch = b.read(2);
@@ -42,13 +54,17 @@ classdef Board < handle
         %   Uses serial://PORT or the ble:// endpoint returned by discover.
         %   The value is retained after close; it is not a connection status.
         Endpoint (1,1) string
+        %DEVICETYPE Selected backend as a read-only scalar string.
+        %   "esp32" or "stm32", fixed when the connection is opened.
+        DeviceType (1,1) string
     end
     properties (Access = private)
         NativeHandle (1,1) uint64 = uint64(0)
     end
     methods (Access = private)
-        function obj = Board(endpoint, handle)
+        function obj = Board(endpoint, handle, deviceType)
             obj.Endpoint = string(endpoint);
+            obj.DeviceType = string(deviceType);
             obj.NativeHandle = uint64(handle);
         end
         function handle = requireOpen(obj)
@@ -59,22 +75,28 @@ classdef Board < handle
         end
     end
     methods (Static)
-        function obj = connect(endpoint, timeout)
+        function obj = connect(endpoint, timeout, deviceType)
             %CONNECT Open an OmniBCI device and wait for configuration readback.
             %   B = omnibci.Board.connect(ENDPOINT) returns a Board handle
-            %   after the device becomes Ready, using a 15-second timeout.
+            %   for an ESP32 device after it becomes Ready, using a 15-second
+            %   timeout.
             %   B = omnibci.Board.connect(ENDPOINT, TIMEOUT) sets a finite
             %   timeout in seconds, with 0 < TIMEOUT <= 60.
+            %   B = omnibci.Board.connect(ENDPOINT, TIMEOUT, DEVICETYPE)
+            %   selects "esp32" (default) or "stm32".
             %
             %   ENDPOINT is a scalar string such as "serial://COM8" or
             %   "serial:///dev/ttyACM0". For BLE, use the endpoint field
-            %   returned by discover("ble"); do not construct a key from a
-            %   MAC address. Close other applications using the device first.
-            %   Invalid endpoints, connection failures and timeouts raise
-            %   omnibci:Device.
+            %   returned by discover(..., DEVICETYPE); do not construct a key
+            %   from a MAC address. ESP32 and STM32 use different BLE
+            %   services, so the device type must match the discovered board.
+            %   STM32 serial endpoints cover both direct USB and the ESB
+            %   dongle. Close other applications using the device first.
+            %   Invalid endpoints, device types, connection failures and
+            %   timeouts raise omnibci:Device.
             %
             %   Example:
-            %     b = omnibci.Board.connect("serial://COM8", 15);
+            %     b = omnibci.Board.connect("serial://COM8", 15, "esp32");
             %     cleanup = onCleanup(@() delete(b));
             %     disp(b.getConfig());
             %     b.close();
@@ -83,30 +105,40 @@ classdef Board < handle
             arguments
                 endpoint (1,1) string
                 timeout (1,1) double {mustBePositive} = 15
+                deviceType (1,1) string {mustBeMember(deviceType, ["esp32", "stm32"])} = "esp32"
             end
-            result = native(struct('command', 'connect', 'endpoint', char(endpoint), 'timeout', timeout));
-            obj = omnibci.Board(endpoint, uint64(result.handle));
+            result = native(struct( ...
+                'command', 'connect', ...
+                'endpoint', char(endpoint), ...
+                'timeout', timeout, ...
+                'device_type', char(deviceType)));
+            obj = omnibci.Board(endpoint, uint64(result.handle), deviceType);
         end
-        function devices = discover(transport, timeout)
+        function devices = discover(transport, timeout, deviceType)
             %DISCOVER List serial ports or scan for OmniBCI BLE devices.
             %   PORTS = omnibci.Board.discover() or discover("serial")
             %   returns a column string array of serial:// endpoints.
             %   Listing a port does not confirm that an OmniBCI board is
             %   attached. Select the correct port before connecting.
             %
-            %   DEVICES = omnibci.Board.discover("ble") scans for 10 seconds.
-            %   DEVICES = omnibci.Board.discover("ble", TIMEOUT) uses a
-            %   finite scan timeout in seconds, with 0 < TIMEOUT <= 60.
-            %   TIMEOUT has no effect on serial port enumeration.
+            %   DEVICES = omnibci.Board.discover("ble") scans for 10 seconds
+            %   using the ESP32 BLE service. DEVICES =
+            %   discover("ble", TIMEOUT) sets a finite scan timeout in
+            %   seconds, with 0 < TIMEOUT <= 60. DEVICES =
+            %   discover("ble", TIMEOUT, DEVICETYPE) selects "esp32"
+            %   (default) or "stm32"; the E73 STM32 board uses a different
+            %   BLE service and name. TIMEOUT and DEVICETYPE have no effect
+            %   on serial port enumeration.
             %
             %   BLE results are structs with endpoint, name, address and
             %   rssi_dbm fields. Optional unavailable values are empty;
             %   no results returns an empty array. Pass endpoint unchanged
-            %   to connect. RSSI is in dBm. Discovery does not open a session.
-            %   Transport failures raise omnibci:Device.
+            %   to connect with the same DEVICETYPE. RSSI is in dBm.
+            %   Discovery does not open a session. Transport failures raise
+            %   omnibci:Device.
             %
             %   Example:
-            %     devices = omnibci.Board.discover("ble", 10);
+            %     devices = omnibci.Board.discover("ble", 10, "stm32");
             %     if ~isempty(devices)
             %         disp(devices(1).endpoint);
             %     end
@@ -115,24 +147,30 @@ classdef Board < handle
             arguments
                 transport (1,1) string {mustBeMember(transport, ["serial", "ble"])} = "serial"
                 timeout (1,1) double {mustBePositive} = 10
+                deviceType (1,1) string {mustBeMember(deviceType, ["esp32", "stm32"])} = "esp32"
             end
             if transport == "serial"
                 ports = native(struct('command', 'serial_ports'));
                 devices = "serial://" + string(ports(:));
             else
-                devices = native(struct('command', 'discover_ble', 'timeout', timeout));
+                devices = native(struct( ...
+                    'command', 'discover_ble', ...
+                    'timeout', timeout, ...
+                    'device_type', char(deviceType)));
             end
         end
         function versions = version()
-            %VERSION Return the loaded MATLAB binding and Rust SDK versions.
+            %VERSION Return the loaded binding, SDK version and SDK revision.
             %   V = omnibci.Board.version() returns a scalar struct with
-            %   character-vector fields binding and sdk. This loads the
-            %   native MEX but does not scan for or connect to hardware.
-            %   The two version numbers identify separate software packages.
+            %   character-vector fields binding, sdk and sdk_revision. This
+            %   loads the native MEX but does not scan for or connect to
+            %   hardware. The version numbers identify separate software
+            %   packages; sdk_revision is the exact pinned omnibci-sdk
+            %   commit compiled into this binding.
             %
             %   Example:
             %     v = omnibci.Board.version();
-            %     disp(v.binding);
+            %     disp(v.sdk_revision);
             %
             %   See also omnibci.selftest.
             versions = native(struct('command', 'version'));
@@ -145,12 +183,20 @@ classdef Board < handle
             %   a new device configuration readback. Fields include:
             %     state - Connecting, Ready, Starting, Streaming, Stopping,
             %             Closed or Faulted, as a character vector.
-            %     metadata - firmware, hardware and protocol, or empty.
-            %     config - Cached frontend configuration, or empty.
+            %     metadata - Legacy firmware, hardware and protocol plus
+            %             independent stm32 and e73 component records. Each
+            %             component has version, revision, dirty, state and
+            %             protocol; unavailable components are empty. The
+            %             component state is available, unsupported, timeout
+            %             or read_failed.
+            %     config - Cached frontend or STM32 configuration, or empty.
             %     generation, samples, missing_samples, crc_errors - Decimal
             %             character vectors preserving full uint64 precision.
             %     ble - received, delivered, crc_bad, duplicates,
-            %             out_of_order and gap_markers transport counters.
+            %             out_of_order and gap_markers ESP32 transport
+            %             counters. STM32 does not expose BLE transport
+            %             metrics, so this field is empty rather than a set
+            %             of fabricated zero counters.
             %     error - Session error text, or empty when absent.
             %
             %   Unlike read(), snapshot does not convert generation or sample
@@ -165,11 +211,13 @@ classdef Board < handle
             snapshot = native(struct('command', 'snapshot', 'handle', obj.requireOpen()));
         end
         function config = getConfig(obj)
-            %GETCONFIG Return the cached frontend configuration.
-            %   C = B.getConfig() returns a scalar struct with reference,
+            %GETCONFIG Return the cached device configuration.
+            %   For an ESP32 board, C is a scalar struct with reference,
             %   mode, enabled_mask, bias_mask, srb2_mask, gains and verified.
-            %   Numeric fields are MATLAB doubles; verified is logical.
-            %   See configure for field meanings and allowed values.
+            %   For an STM32 board, C has mode, enabled_mask, bias_mask,
+            %   loff_mask, gains and verified, with 32 gains. Numeric fields
+            %   are MATLAB doubles; verified is logical. See configure for
+            %   field meanings and allowed values.
             %
             %   This reads the session snapshot, not a fresh device query.
             %   If no configuration is available, it raises
@@ -187,12 +235,12 @@ classdef Board < handle
             end
         end
         function configure(obj, config, timeout)
-            %CONFIGURE Apply frontend settings and verify device readback.
+            %CONFIGURE Apply device settings and verify hardware acknowledgement.
             %   B.configure(C) applies scalar struct C with a 5-second
             %   timeout. B.configure(C, TIMEOUT) sets a finite timeout in
             %   seconds, with 0 < TIMEOUT <= 60. The board must be Ready.
             %
-            %   Required fields in C:
+            %   ESP32 (DeviceType "esp32") required fields:
             %     reference    - 0 for SRB1, 1 for SRB2.
             %     mode         - 0 both_bias, 1 eeg, 2 no_bias, 3 shorted,
             %                    or 4 test.
@@ -202,17 +250,32 @@ classdef Board < handle
             %     gains        - Eight values from [1 2 4 6 8 12 24].
             %   Mask bit 0 selects channel 1, through bit 7 for channel 8.
             %   bias_mask and srb2_mask must be subsets of enabled_mask.
-            %   The optional verified field from getConfig is ignored on
-            %   input; successful device readback verifies the new settings.
             %
-            %   Missing fields or invalid gain lists raise
-            %   omnibci:Configuration; other SDK validation, invalid state,
-            %   readback or timeout failures raise omnibci:Device.
-            %   A closed B raises omnibci:Closed.
+            %   STM32 (DeviceType "stm32") required fields:
+            %     mode         - Numeric 0 both_bias, 1 eeg, 2 no_bias,
+            %                    3 shorted, or 4 test.
+            %     enabled_mask - Integer 0..4294967295; bit 0 is channel 1.
+            %     bias_mask    - Integer 0..4294967295, subset of enabled.
+            %     loff_mask    - Integer 0..4294967295, subset of enabled;
+            %                    lead-off excitation is allowed only in modes
+            %                    0..2. Zero disables excitation.
+            %     gains        - 32 values from [1 2 4 6 8 12 24].
+            %   The STM32 backend is fixed to 250 Hz and SRB1 and has no
+            %   SRB2 or sample-rate field. Mode and masks are JSON numbers;
+            %   the native bridge and SDK validate range and mask subsets.
+            %
+            %   The configuration shape must match DeviceType; mixing ESP32
+            %   and STM32 fields raises omnibci:Configuration. Missing fields
+            %   or invalid gain lists also raise omnibci:Configuration; SDK
+            %   validation, invalid state, acknowledgement or timeout
+            %   failures raise omnibci:Device. The optional verified field
+            %   from getConfig is ignored on input; a successful device
+            %   acknowledgement verifies the new settings. A closed B raises
+            %   omnibci:Closed.
             %
             %   Example (while Ready):
             %     c = b.getConfig();
-            %     c.gains = repmat(12, 1, 8);
+            %     c.gains = repmat(12, 1, numel(c.gains));
             %     b.configure(c);
             %     c = b.getConfig();
             %     assert(c.verified);
@@ -223,24 +286,26 @@ classdef Board < handle
                 config (1,1) struct
                 timeout (1,1) double {mustBePositive} = 5
             end
-            required = {'reference', 'mode', 'enabled_mask', 'bias_mask', 'srb2_mask', 'gains'};
-            if ~all(isfield(config, required))
-                error('omnibci:Configuration', 'Configuration must have reference, mode, masks, and gains.');
-            end
-            if numel(config.gains) ~= 8 || ~all(ismember(config.gains, [1 2 4 6 8 12 24]))
-                error('omnibci:Configuration', 'gains must contain eight valid ADS1299 gains.');
+            if obj.DeviceType == "stm32"
+                config = validateStm32Config(config);
+            else
+                validateEsp32Config(config);
             end
             config = rmfieldIfPresent(config, 'verified');
             native(struct('command', 'configure', 'handle', obj.requireOpen(), 'config', config, 'timeout', timeout));
         end
         function start(obj, timeout)
-            %START Start acquisition and wait for the first received samples.
+            %START Start acquisition and wait for the firmware START acknowledgement.
             %   B.start() uses a 5-second timeout. B.start(TIMEOUT) sets a
             %   finite timeout in seconds, with 0 < TIMEOUT <= 60.
             %   The board must be Ready; success transitions it to Streaming.
-            %   Starting clears queued samples from the previous acquisition
-            %   and begins a new generation. Read any required tail samples
-            %   before restarting.
+            %   For STM32, success means the firmware acknowledged START (the
+            %   SDK's Stm32Started result). It does not wait for the first
+            %   sample, which may arrive later; call read to receive samples.
+            %   ESP32 start instead returns once streaming readiness is
+            %   established. Starting clears queued samples from the
+            %   previous acquisition and begins a new generation. Read any
+            %   required tail samples before restarting.
             %
             %   Invalid state, transport or timeout failures raise
             %   omnibci:Device. A closed B raises omnibci:Closed.
@@ -265,13 +330,18 @@ classdef Board < handle
             %   or a requested sample count. Already queued data returns
             %   immediately. Read repeatedly while the board is streaming.
             %
-            %   DATA is a scalar struct. For N samples, its fields are:
-            %     eeg_uv         - N-by-8 single, scaled channel microvolts.
-            %     raw_counts     - N-by-8 int32, signed ADC counts.
+            %   DATA is a scalar struct. For N samples and the selected
+            %   backend's channel count C (8 ESP32, 32 STM32), its fields are:
+            %     eeg_uv         - N-by-C single, scaled channel microvolts.
+            %                      Invalid STM32 frames contain NaN.
+            %     raw_counts     - N-by-C int32, signed ADC counts.
             %     sequence       - N-by-1 uint32, frame sequence numbers.
             %     valid          - N-by-1 logical, SDK frame validity flags.
             %     mode           - N-by-1 uint8, frame acquisition modes.
-            %     status         - N-by-3 uint8, ADS status bytes.
+            %     status         - N-by-S uint8 where S is 3 for ESP32 and
+            %                      12 for STM32 (four genuine ADS1299 status
+            %                      words from frame bytes 12-23). The bytes
+            %                      are passed through, not reinterpreted.
             %     sample_indices - N-by-1 uint64, sequence-derived indices;
             %                      missing samples leave gaps in this axis.
             %     generation     - uint64 scalar identifying the acquisition.
@@ -279,7 +349,10 @@ classdef Board < handle
             %     sample_time_s  - N-by-1 double, sample_indices/rate in seconds.
             %     received_age_s - Seconds since SDK host delivery of this
             %                      batch, measured when the request is handled.
-            %   Neither time field is an absolute hardware timestamp.
+            %     channel_count  - Scalar double, C above.
+            %     status_bytes   - Scalar double, S above.
+            %   Neither time field is an absolute hardware timestamp. N may
+            %   be zero, one or many; empty batches keep C and S columns.
             %
             %   After stop(), read can drain remaining queued batches. Once
             %   empty, it raises a timeout; it does not return an end marker.
@@ -329,6 +402,16 @@ classdef Board < handle
             %   Stops active acquisition and waits for worker shutdown.
             %   To retain tail data, call stop and read before close.
             %
+            %   For STM32, close first stops acquisition. If the current
+            %   configuration has nonzero loff_mask, close submits a new
+            %   configuration with loff_mask zero and requires the SDK to
+            %   confirm it. If that confirmation or the stop cannot be
+            %   obtained, close raises omnibci:Device and the caller must
+            %   not assume lead-off excitation is off. A failed Disconnect
+            %   stop is escalated through a bounded Shutdown cleanup; any
+            %   cleanup failure is reported rather than silently ignored.
+            %   STM32 does not auto-reconnect after a disconnect.
+            %
             %   After success the handle is closed; repeated close calls do
             %   nothing. Other device operations then raise omnibci:Closed.
             %   Failures raise omnibci:Device and retain the native handle
@@ -351,9 +434,10 @@ classdef Board < handle
         end
         function delete(obj)
             %DELETE Perform best-effort cleanup when destroying a Board.
-            %   delete(B) calls close if B still has a native handle and
+            %   delete(B) releases the native handle even after a fault and
             %   suppresses cleanup errors. Call B.close() explicitly when
-            %   the application must detect shutdown failures.
+            %   the application must detect shutdown failures, including a
+            %   failed STM32 stop or unconfirmed LOFF excitation shutdown.
             %
             %   Example:
             %     b = omnibci.Board.connect("serial://COM8");
@@ -361,8 +445,10 @@ classdef Board < handle
             %
             %   See also omnibci.Board.close, onCleanup.
             if obj.NativeHandle ~= 0
+                handle = obj.NativeHandle;
+                obj.NativeHandle = uint64(0);
                 try
-                    obj.close();
+                    native(struct('command', 'dispose', 'handle', handle, 'timeout', 6));
                 catch
                     % Destructors cannot report cleanup errors. Call close explicitly.
                 end
@@ -374,5 +460,55 @@ end
 function config = rmfieldIfPresent(config, field)
 if isfield(config, field)
     config = rmfield(config, field);
+end
+end
+
+function validateEsp32Config(config)
+if isfield(config, 'loff_mask')
+    error('omnibci:Configuration', 'loff_mask is only valid for STM32 devices.');
+end
+required = {'reference', 'mode', 'enabled_mask', 'bias_mask', 'srb2_mask', 'gains'};
+if ~all(isfield(config, required))
+    error('omnibci:Configuration', ...
+        'ESP32 configuration must have reference, mode, masks, and gains.');
+end
+if numel(config.gains) ~= 8 || ~all(ismember(config.gains, [1 2 4 6 8 12 24]))
+    error('omnibci:Configuration', 'gains must contain eight valid ADS1299 gains.');
+end
+end
+
+function config = validateStm32Config(config)
+if any(isfield(config, {'reference', 'srb2_mask'}))
+    error('omnibci:Configuration', ...
+        'STM32 configuration must not contain ESP32 reference or srb2_mask fields.');
+end
+required = {'mode', 'enabled_mask', 'bias_mask', 'loff_mask', 'gains'};
+if ~all(isfield(config, required))
+    error('omnibci:Configuration', ...
+        'STM32 configuration must have numeric mode, enabled_mask, bias_mask, loff_mask, and 32 gains.');
+end
+if ~isnumeric(config.gains) || numel(config.gains) ~= 32 || ...
+        ~all(ismember(config.gains, [1 2 4 6 8 12 24]))
+    error('omnibci:Configuration', 'gains must contain 32 valid STM32 gains.');
+end
+if ~isscalar(config.mode) || ~isnumeric(config.mode) || ~isreal(config.mode) || ...
+        ~isfinite(config.mode) || config.mode < 0 || config.mode > 4 || ...
+        config.mode ~= floor(config.mode)
+    error('omnibci:Configuration', 'mode must be a numeric integer from 0 to 4.');
+end
+validateStm32Mask(config.enabled_mask, 'enabled_mask');
+validateStm32Mask(config.bias_mask, 'bias_mask');
+validateStm32Mask(config.loff_mask, 'loff_mask');
+% Force exact JSON integers for the uint32 masks.
+config.enabled_mask = uint32(config.enabled_mask);
+config.bias_mask = uint32(config.bias_mask);
+config.loff_mask = uint32(config.loff_mask);
+end
+
+function validateStm32Mask(value, name)
+if ~isscalar(value) || ~isnumeric(value) || ~isreal(value) || ~isfinite(value) || ...
+        value < 0 || value > 4294967295 || value ~= floor(value)
+    error('omnibci:Configuration', ...
+        '%s must be an integer from 0 to 4294967295.', name);
 end
 end

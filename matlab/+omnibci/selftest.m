@@ -1,15 +1,18 @@
 function versions = selftest()
 %SELFTEST Verify the installed OmniBCI package without connecting to hardware.
 %   omnibci.selftest() loads the MEX and checks version reporting, empty
-%   batches, valid and corrupted USB frames, CRC handling, signed ADC counts,
-%   gain scaling and rejection of an invalid endpoint. It prints a success
-%   message only after all checks pass. No device is scanned or opened.
+%   batches, valid and corrupted eight-channel ESP32 USB frames, CRC
+%   handling, signed ADC counts, gain scaling and rejection of an invalid
+%   endpoint. It prints a success message only after all checks pass. No
+%   device is scanned or opened.
 %
 %   V = omnibci.selftest() additionally returns a scalar struct containing
-%   the loaded binding and sdk versions as character vectors.
+%   the loaded binding and sdk versions and the exact sdk_revision commit as
+%   character vectors.
 %   Failed checks raise MATLAB assertion errors; MEX installation or loading
 %   failures preserve the diagnostic identifiers described in README.md.
-%   A successful self-test does not verify USB/BLE hardware connectivity.
+%   A successful self-test does not verify USB/BLE hardware connectivity and
+%   does not validate the STM32/E73 acquisition path.
 %
 %   Example:
 %     versions = omnibci.selftest();
@@ -17,11 +20,13 @@ function versions = selftest()
 %
 %   See also omnibci.Board.version, omnibci.decodeFrames.
 versions = omnibci.Board.version();
-assert(isfield(versions, 'binding') && isfield(versions, 'sdk'));
-assert(~isempty(versions.binding) && ~isempty(versions.sdk));
+assert(isfield(versions, 'binding') && isfield(versions, 'sdk') && isfield(versions, 'sdk_revision'));
+assert(~isempty(versions.binding) && ~isempty(versions.sdk) && ~isempty(versions.sdk_revision));
 empty = omnibci.decodeFrames(uint8([]));
 assert(isequal(size(empty.eeg_uv), [0 8]));
 assert(isequal(size(empty.raw_counts), [0 8]));
+assert(isequal(size(empty.status), [0 3]));
+assert(empty.channel_count == 8 && empty.status_bytes == 3);
 
 frame = zeros(1, 48, 'uint8');
 frame(1:4) = uint8([165 90 1 1]);
