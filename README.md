@@ -1,6 +1,6 @@
 # OmniBCI MATLAB SDK
 
-> **开发分支说明（`dev/32ch`）**：本目录是尚未构建、尚未发布的源码适配，新增 STM32H563 + ADS1299 32 导后端。GitHub Releases 中的现有预编译 ZIP 是旧版 ESP32 八导发布包，**不包含 STM32 后端，也不固定到本分支清单引用的 SDK 提交**。本适配尚未运行构建或测试；除特别注明外，下文的运行验证结论都只适用于旧发布包，不能作为本适配的验证结果。
+> **开发分支说明（`dev/32ch`）**：当前源码已在 Windows MATLAB R2023a 构建并验证 STM32 32 导 USB/BLE 及串口打标器。旧 GitHub Releases 仍是 ESP32 八导包，不包含这些新功能。构建步骤见 DEVELOPMENT.md；事件接口和实测边界见 [TRIGGER.md](TRIGGER.md)。
 
 本分支源码通过 Rust `omnibci-sdk` 控制 ESP32-C3 + ADS1299 八导 USB CDC / reliable BLE，以及 STM32H563 + ADS1299 32 导 USB、ESB Dongle 与 E73 BLE 采集。两种设备均为 250 Hz；STM32 固定 SRB1。
 
@@ -17,7 +17,7 @@
 | `macos-x64` | `mexmaci64` | R2025a | 尚未验证；CI 仅执行 Rust 检查和 MEX 构建 |
 | `macos-arm64` | `mexmaca64` | R2025a | 尚未验证；CI 仅执行 Rust 检查和 MEX 构建 |
 
-以上运行验证只针对旧发布包的原有 ESP32 八导路径，不适用于 `dev/32ch` 源码适配。本分支新增的 STM32/E73 32 导适配尚未构建、尚未运行测试，也未完成实机验收；旧的八导验证不能视为 STM32 验证，长时采集、掉线和 E73 BLE 稳定性均需单独实测。
+以上运行验证只针对旧发布包的原有 ESP32 八导路径，不适用于 `dev/32ch` 源码适配。本分支新增的 STM32/E73 32 导 USB/BLE 及打标已通过 Windows R2023a 短时实机验证，见 TRIGGER.md；长时采集、掉线及其他平台仍需单独验证。
 
 Apple Silicon 上的 Intel MATLAB 使用 `macos-x64`，原生 MATLAB 使用 `macos-arm64`。需要已安装并有许可证的 MATLAB；最低版本以上的 MATLAB 和操作系统组合未逐一验证。
 
@@ -133,4 +133,4 @@ help omnibci.selftest
 
 ## 源码构建
 
-`dev/32ch` 是未构建、未发布的源码适配，没有可用的预编译 ZIP。请按 [dev/32ch 源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/dev/32ch/DEVELOPMENT.md) 使用 `--branch dev/32ch` 克隆并自行构建。旧发布 ZIP 包含 MEX，无需 Rust 或 C++ MEX 编译器，但只提供 ESP32 八导功能。
+`dev/32ch` 已在 Windows R2023a 构建并通过短时 USB/BLE 及打标验收，但尚未发布预编译 ZIP。请按 [dev/32ch 源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/dev/32ch/DEVELOPMENT.md) 使用 `--branch dev/32ch` 克隆并自行构建。旧发布 ZIP 包含 MEX，无需 Rust 或 C++ MEX 编译器，但只提供 ESP32 八导功能。

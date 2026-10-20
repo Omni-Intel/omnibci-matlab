@@ -12,9 +12,8 @@ classdef Board < handle
     %               Fixed 250 Hz and SRB1; no SRB2 or sample-rate control.
     %               This unreleased dev/32ch source adaptation provides no
     %               wireless mode switch and no automatic reconnect. It has
-    %               not been built or tested in this branch and has not
-    %               completed hardware acceptance testing; existing ESP32
-    %               validation does not cover it.
+    %               passed short Windows R2023a USB/BLE and trigger tests.
+    %               See TRIGGER.md for tested scope and remaining platform limits.
     %
     %   Board Properties:
     %     Endpoint   - Read-only endpoint used to open the connection.
@@ -370,6 +369,12 @@ classdef Board < handle
                 timeout (1,1) double {mustBePositive} = 2
             end
             batch = normalizeBatch(native(struct('command', 'read', 'handle', obj.requireOpen(), 'timeout', timeout)));
+        end
+        function events = readTriggers(obj)
+            %READTRIGGERS Drain available STM32 events independently of EEG reads.
+            % Nonblocking, 16384-event bounded queue; overflow raises an error.
+            % Stop preserves events; successful start clears the previous generation.
+            events = normalizeTriggers(native(struct('command','read_triggers','handle',obj.requireOpen())));
         end
         function stop(obj, timeout)
             %STOP Stop acquisition while preserving queued samples.

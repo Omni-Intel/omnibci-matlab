@@ -2,7 +2,7 @@
 
 ## 构建
 
-`dev/32ch` 是**尚未构建、尚未发布**的源码适配，新增 STM32 32 导后端。GitHub Releases 中的预编译 ZIP 是旧版 ESP32 八导包，不包含本适配，也不固定到本分支引用的 SDK 提交。本适配尚未运行构建或测试；以下步骤和命令是使用说明，不代表已经通过。
+`dev/32ch` 已在 Windows MATLAB R2023a 构建并通过 STM32 32 导 USB/BLE、打标器发送及硬件事件读取的短时实机验证，详见 TRIGGER.md。旧发布包仍仅含 ESP32 八导功能。
 
 需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `aa9ab512ecf6243646fbbb23e9432e3c79eac1ec`（`omnibci-sdk` 0.2.0），并启用 `esp32` 与 `e73-ble` feature；绑定自身不提升版本号。
 
@@ -30,7 +30,7 @@ test_stm32_offline
 
 ## 验证
 
-本适配尚未运行下列构建或测试；这里只给出应执行的命令和测试覆盖范围，不声称已经通过。在仓库根目录运行 Rust 检查和构建：
+本机已执行 Rust 构建、测试、Clippy 及 MATLAB 离线测试；实机边界见 TRIGGER.md。在仓库根目录运行 Rust 检查和构建：
 
 ```sh
 cargo test --locked
@@ -52,7 +52,7 @@ test_hardware("usb")  % COM8；使用其他端口时修改 tests/test_hardware.m
 test_hardware("ble")  % 扫描名为 OmniBCI 的 ESP32 设备
 ```
 
-`test_hardware` 只覆盖原有 ESP32 八导路径，测试回写当前配置、连续读取 3 秒，检查数据形状、数量和停止后的状态。旧发布包在 Windows R2023a 的 ESP32 USB/BLE 短时采集曾通过；这不验证本源码适配，也不验证 STM32。STM32 32 导/E73 的 USB、Dongle 与 BLE 采集、掉线、停止尾包、LOFF 关闭和长时稳定性均尚未构建、测试或完成实机验收，需按 `examples/acquire_stm32.m` 单独记录实测结果。长时采集、停止尾包及 Linux/macOS 硬件连接同样尚未验证。
+`test_hardware` 只覆盖原有 ESP32 八导路径，测试回写当前配置、连续读取 3 秒，检查数据形状、数量和停止后的状态。旧发布包在 Windows R2023a 的 ESP32 USB/BLE 短时采集曾通过；这不验证本源码适配，也不验证 STM32。STM32 32 导 USB/BLE 与打标已完成短时实机验证，详见 TRIGGER.md。Dongle、长时稳定性、掉线恢复、LOFF 关闭和 Linux/macOS 实机验收仍未完成。
 
 ## Serial trigger dispatch
 
@@ -71,5 +71,4 @@ timestamp. Acquisition event reception is separate from this controller.
 On 2026-10-21 the current 32-channel source baseline was built as a Windows R2023a
 MEX and passed `test_offline`, `test_stm32_offline` and trigger invalid-port tests.
 This supersedes the earlier statement that the source adaptation had never been
-built. It does not establish real-device 32-channel or trigger acceptance, which is
-still pending for these bindings.
+built. Subsequent USB/BLE 32-channel and trigger hardware acceptance is recorded in TRIGGER.md.

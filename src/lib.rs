@@ -362,6 +362,8 @@ fn samples_json(
         "valid": samples.frames.iter().map(|frame| frame.valid).collect::<Vec<_>>(),
         "mode": samples.frames.iter().map(|frame| frame.mode).collect::<Vec<_>>(),
         "status": status,
+        "source_timestamp_us": samples.frames.iter().map(|f| f.source_timestamp_us.unwrap_or(0)).collect::<Vec<_>>(),
+        "source_timestamp_valid": samples.frames.iter().map(|f| f.source_timestamp_us.is_some()).collect::<Vec<_>>(),
         "sample_indices": samples.sample_indices.iter().map(u64::to_string).collect::<Vec<_>>(),
         "generation": samples.generation.to_string(),
         "sample_rate_hz": samples.sample_rate_hz,
@@ -376,6 +378,27 @@ fn execute(req: Request) -> Result<Value, String> {
         return trigger::execute(req);
     }
     match req.command.as_str() {
+        "read_triggers" => {
+            let mut registry = registry().lock().map_err(|e| e.to_string())?;
+            match registry
+                .devices
+                .get_mut(&req.handle)
+                .ok_or("invalid device handle")?
+            {
+                Backend::Stm32(device) => {
+                    let (generation, events) = device.read_triggers().map_err(|e| e.to_string())?;
+                    Ok(triggers_json(generation, &events))
+                }
+                Backend::Esp32(_) => {
+                    Err("hardware trigger polling currently requires STM32".into())
+                }
+            }
+        }
+        "decode_triggers" => {
+            let mut parser = omnibci_sdk::stm32::Parser::default();
+            parser.feed(&req.bytes, &[24; 32]);
+            Ok(triggers_json(0, &parser.events))
+        }
         "dispose" => {
             // Destruction must release the registry entry even when a session
             // retains a permanent fault. Explicit close still preserves it for
@@ -540,6 +563,20 @@ pub unsafe extern "C" fn omnibci_free(response: *mut c_char) {
             drop(CString::from_raw(response));
         }
     }
+}
+
+fn triggers_json(
+    generation: u64,
+    events: &[omnibci_sdk::protocol::EegTrigger],
+) -> serde_json::Value {
+    serde_json::json!({"generation": generation.to_string(), "events": events.iter().map(|event| {
+        serde_json::json!({"code":event.code,"sequence":event.sequence,
+            "source_timestamp_ms":event.source_timestamp_ms,
+            "timing":event.timing.as_ref().map(|timing| serde_json::json!({
+                "trigger_timestamp_us": timing.trigger_timestamp_us.to_string(),
+                "anchor_timestamp_us":timing.anchor_timestamp_us
+            }))})
+    }).collect::<Vec<_>>()})
 }
 
 #[cfg(test)]

@@ -21,6 +21,14 @@ sample_count = numel(batch.sequence);
 batch.sequence = normalizeVector(batch, 'sequence', sample_count, 'uint32');
 batch.valid = normalizeVector(batch, 'valid', sample_count, 'logical');
 batch.mode = normalizeVector(batch, 'mode', sample_count, 'uint8');
+if isfield(batch, 'source_timestamp_us') && isfield(batch, 'source_timestamp_valid')
+    batch.source_timestamp_us = normalizeVector(batch, 'source_timestamp_us', sample_count, 'uint32');
+    batch.source_timestamp_valid = normalizeVector(batch, 'source_timestamp_valid', sample_count, 'logical');
+else
+    batch.source_timestamp_us = zeros(sample_count, 1, 'uint32');
+    batch.source_timestamp_valid = false(sample_count, 1);
+end
+
 batch.eeg_uv = normalizeMatrix(batch, 'eeg_uv', sample_count, channel_count, 'single');
 batch.raw_counts = normalizeMatrix(batch, 'raw_counts', sample_count, channel_count, 'int32');
 batch.status = normalizeMatrix(batch, 'status', sample_count, status_bytes, 'uint8');
