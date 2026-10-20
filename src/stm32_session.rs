@@ -189,10 +189,8 @@ impl Core {
             }
             // A failed Disconnect stop leaves the latest SDK driver running until
             // Shutdown. Its best-effort cleanup report must not vanish during close.
-            Event::Stm32Stopped(result) if self.pending.is_none() && self.closing => {
-                if let Err(error) = result {
-                    self.record_cleanup(Error::Transport(error));
-                }
+            Event::Stm32Stopped(Err(error)) if self.pending.is_none() && self.closing => {
+                self.record_cleanup(Error::Transport(error));
             }
             Event::Bytes(bytes)
                 if matches!(

@@ -4,6 +4,7 @@
 //! use the synchronous owner in [`stm32_session`], which wraps the SDK's low-level
 //! transport spawn APIs. Neither path reimplements a wire protocol here.
 mod stm32_session;
+mod trigger;
 
 use omnibci_sdk::{
     ADS_CHANNELS, SDK_VERSION,
@@ -28,11 +29,13 @@ use std::{
 mod mex;
 
 /// SDK baseline compiled into the binding. Update together with the SDK submodule.
-const SDK_REVISION: &str = "3aaebedf61cb5d23e57fe1c44014d08f5845318a";
+const SDK_REVISION: &str = "aa9ab512ecf6243646fbbb23e9432e3c79eac1ec";
 
 #[derive(Deserialize)]
 struct Request {
     command: String,
+    #[serde(default)]
+    code: Option<u16>,
     #[serde(default)]
     endpoint: String,
     #[serde(default)]
@@ -369,6 +372,9 @@ fn samples_json(
 }
 
 fn execute(req: Request) -> Result<Value, String> {
+    if req.command.starts_with("trigger_") {
+        return trigger::execute(req);
+    }
     match req.command.as_str() {
         "dispose" => {
             // Destruction must release the registry entry even when a session
