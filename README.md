@@ -30,7 +30,7 @@ omnibci.selftest()
 
 `selftest` 检查 MEX 加载、版本查询和离线解码，通过后打印结果并返回绑定与 SDK 版本，不连接硬件；本分支还增加 SDK revision。`addpath` 仅对当前会话生效。
 
-本分支源码清单（`Cargo.toml` 与 `sdk` 子模块）固定到 `omnibci-sdk` 提交 `19eda533909ed833ae7b8106df32a80d9255994c`。旧发布 ZIP 可能编译自更早的 SDK，不能声称固定到该提交；从本分支构建后，可用 `omnibci.Board.version()` 的 `sdk_revision` 字段核对实际安装基线。`dev/32ch` 适配目前没有对应的预编译包，需要从源码构建，见 [dev/32ch 源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/dev/32ch/DEVELOPMENT.md)。
+本分支源码清单（`Cargo.toml` 与 `sdk` 子模块）固定到 `omnibci-sdk` 提交 `3aaebedf61cb5d23e57fe1c44014d08f5845318a`。旧发布 ZIP 可能编译自更早的 SDK，不能声称固定到该提交；从本分支构建后，可用 `omnibci.Board.version()` 的 `sdk_revision` 字段核对实际安装基线。`dev/32ch` 适配目前没有对应的预编译包，需要从源码构建，见 [dev/32ch 源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/dev/32ch/DEVELOPMENT.md)。
 
 ### 安装诊断
 

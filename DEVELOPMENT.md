@@ -4,7 +4,7 @@
 
 `dev/32ch` 是**尚未构建、尚未发布**的源码适配，新增 STM32 32 导后端。GitHub Releases 中的预编译 ZIP 是旧版 ESP32 八导包，不包含本适配，也不固定到本分支引用的 SDK 提交。本适配尚未运行构建或测试；以下步骤和命令是使用说明，不代表已经通过。
 
-需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `19eda533909ed833ae7b8106df32a80d9255994c`（`omnibci-sdk` 0.2.0），并启用 `esp32` 与 `e73-ble` feature；绑定自身不提升版本号。
+需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `3aaebedf61cb5d23e57fe1c44014d08f5845318a`（`omnibci-sdk` 0.2.0），并启用 `esp32` 与 `e73-ble` feature；绑定自身不提升版本号。
 
 ```sh
 git clone --branch dev/32ch --recurse-submodules https://github.com/Omni-Intel/omnibci-matlab.git

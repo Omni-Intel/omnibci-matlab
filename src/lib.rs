@@ -28,7 +28,7 @@ use std::{
 mod mex;
 
 /// SDK baseline compiled into the binding. Update together with the SDK submodule.
-const SDK_REVISION: &str = "19eda533909ed833ae7b8106df32a80d9255994c";
+const SDK_REVISION: &str = "3aaebedf61cb5d23e57fe1c44014d08f5845318a";
 
 #[derive(Deserialize)]
 struct Request {
@@ -697,6 +697,7 @@ mod tests {
                 mode: 0,
                 status: vec![0xC0; 12],
                 source_timestamp_ms: None,
+                source_timestamp_us: None,
                 triggers: vec![],
             }],
             sample_indices: vec![u64::MAX],
