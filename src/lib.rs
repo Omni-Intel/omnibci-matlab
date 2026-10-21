@@ -29,7 +29,7 @@ use std::{
 mod mex;
 
 /// SDK baseline compiled into the binding. Update together with the SDK submodule.
-const SDK_REVISION: &str = "aa9ab512ecf6243646fbbb23e9432e3c79eac1ec";
+const SDK_REVISION: &str = "e1f25b3a6d272e5040929c53b331d45738ff6d73";
 
 #[derive(Deserialize)]
 struct Request {
