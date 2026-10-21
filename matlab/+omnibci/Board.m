@@ -29,6 +29,7 @@ classdef Board < handle
     %     start     - Start acquisition; STM32 waits for the firmware START
     %                 acknowledgement, ESP32 for streaming readiness.
     %     read      - Receive one variable-size sample batch.
+    %     readTriggers - Drain available STM32 hardware events independently.
     %     stop      - Stop acquisition while preserving queued samples.
     %     close     - Close the connection and release native resources.
     %     delete    - Perform best-effort cleanup of the handle object.
@@ -348,10 +349,16 @@ classdef Board < handle
             %     sample_time_s  - N-by-1 double, sample_indices/rate in seconds.
             %     received_age_s - Seconds since SDK host delivery of this
             %                      batch, measured when the request is handled.
+            %     source_timestamp_us - N-by-1 uint32 device DRDY microseconds,
+            %                      modulo 2^32; STM32 only when valid below.
+            %     source_timestamp_valid - N-by-1 logical availability mask.
+            %                      Zero with true validity is a wrapped time;
+            %                      false denotes unavailable time (e.g. ESP32).
             %     channel_count  - Scalar double, C above.
             %     status_bytes   - Scalar double, S above.
-            %   Neither time field is an absolute hardware timestamp. N may
-            %   be zero, one or many; empty batches keep C and S columns.
+            %   sample_time_s and received_age_s are not hardware timestamps.
+            %   source_timestamp_us is device time, not UTC or host time.
+            %   N may be zero, one or many; empty batches keep C and S columns.
             %
             %   After stop(), read can drain remaining queued batches. Once
             %   empty, it raises a timeout; it does not return an end marker.

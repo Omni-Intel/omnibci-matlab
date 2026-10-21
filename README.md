@@ -1,8 +1,18 @@
 # OmniBCI MATLAB SDK
 
-> **开发分支说明（`dev/32ch`）**：当前源码已在 Windows MATLAB R2023a 构建；STM32 32 导 USB/BLE 及串口打标器的短时实机验证使用旧 SDK 固定提交，详见 [TRIGGER.md](TRIGGER.md)。本次 SDK 升级只完成离线构建与测试，未重跑实机测试。旧 GitHub Releases 仍是 ESP32 八导包，不包含这些新功能。构建步骤见 DEVELOPMENT.md。
+> **开发分支（`dev/32ch`）**：STM32 32 导与硬件触发功能需要从源码构建，旧 Release ZIP 仅支持 ESP32 八导。安装前请看下方验证状态，构建步骤见 [DEVELOPMENT](DEVELOPMENT.md)。
 
 本分支源码通过 Rust `omnibci-sdk` 控制 ESP32-C3 + ADS1299 八导 USB CDC / reliable BLE，以及 STM32H563 + ADS1299 32 导的板端 USB CDC 或 E73 BLE 采集；STM32 固件已移除 ESB Dongle 和双模式切换。两种设备均为 250 Hz；STM32 固定 SRB1。
+
+## 验证状态
+
+| 基线 | 已验证范围 | 限制与证据 |
+| --- | --- | --- |
+| 旧 Release ZIP | Windows R2023a ESP32 USB/BLE 短时采集 | 不包含本分支 STM32 适配；其他平台见安装表 |
+| 当前 `dev/32ch`，SDK `e1f25b3a6d272e5040929c53b331d45738ff6d73` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查 | SDK 升级未重跑硬件，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
+| 旧 SDK `aa9ab512ecf6243646fbbb23e9432e3c79eac1ec` | STM32 32.2.3 / E73 0.5.1 的 USB/BLE 短时采集与打标 | 历史结果不能验证当前 pin；版本、事件数与边界见 [TRIGGER](TRIGGER.md) |
+
+当前源码的长时采集、掉线、LOFF 关闭及 Linux/macOS 实机验收仍需单独完成。安装产物的绑定版本 0.2.1 不能唯一标识 SDK；可用 `info = omnibci.Board.version()` 后检查 `info.sdk_revision`。旧 ZIP 可能没有该字段。
 
 ## 安装
 
@@ -17,7 +27,7 @@
 | `macos-x64` | `mexmaci64` | R2025a | 尚未验证；CI 仅执行 Rust 检查和 MEX 构建 |
 | `macos-arm64` | `mexmaca64` | R2025a | 尚未验证；CI 仅执行 Rust 检查和 MEX 构建 |
 
-以上运行验证只针对旧发布包的原有 ESP32 八导路径，不适用于 `dev/32ch` 源码适配。STM32/E73 32 导 USB/BLE 及打标的短时实机验证使用旧 SDK 固定提交，结果与边界见 TRIGGER.md；当前升级未重跑实机测试，长时采集、掉线及其他平台仍需单独验证。
+此表只描述旧发布包，当前源码验证范围见上方验证状态。
 
 Apple Silicon 上的 Intel MATLAB 使用 `macos-x64`，原生 MATLAB 使用 `macos-arm64`。需要已安装并有许可证的 MATLAB；最低版本以上的 MATLAB 和操作系统组合未逐一验证。
 
@@ -30,7 +40,7 @@ omnibci.selftest()
 
 `selftest` 检查 MEX 加载、版本查询和离线解码，通过后打印结果并返回绑定与 SDK 版本，不连接硬件；本分支还增加 SDK revision。`addpath` 仅对当前会话生效。
 
-本分支源码清单（`Cargo.toml` 与 `sdk` 子模块）固定到 `omnibci-sdk` 提交 `e1f25b3a6d272e5040929c53b331d45738ff6d73`。本次升级保持公开 MATLAB API 与绑定版本 0.2.1 不变，只重新构建并运行离线测试，未重跑实机测试；详见 DEVELOPMENT.md。旧发布 ZIP 可能编译自更早的 SDK，不能声称固定到该提交；从本分支构建后，可用 `omnibci.Board.version()` 的 `sdk_revision` 字段核对实际安装基线。`dev/32ch` 适配目前没有对应的预编译包，需要从源码构建，见 [dev/32ch 源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/dev/32ch/DEVELOPMENT.md)。
+从当前源码构建 32 导 MEX 的步骤见 [源码构建与开发验证](DEVELOPMENT.md)。
 
 ### 安装诊断
 
@@ -77,7 +87,7 @@ board.close();
 % STM32 32 导：板端 USB CDC 使用 serial://；BLE 使用 E73 扫描结果
 devices = omnibci.Board.discover("ble", 10, "stm32");
 if isempty(devices)
-    error("未发现 OmniBCI32-BLE");
+    error("未发现 STM32/E73 BLE 设备");
 end
 board = omnibci.Board.connect(string(devices(1).endpoint), 20, "stm32");
 cleanup = onCleanup(@() delete(board));
@@ -95,7 +105,7 @@ board.stop();
 board.close();
 ```
 
-BLE 连接使用发现结果的 `endpoint`；ESP32 和 STM32 使用不同 BLE 服务，`deviceType` 必须与发现时一致，不要把 MAC 地址当作 key。设备只允许一个控制进程连接。`connect` 等待配置确认。ESP32 的 `start` 等待进入流式采集；STM32 的 `start` 等待固件 START 确认（SDK 的 `Stm32Started` 结果），成功返回时首个样本不一定已经到达，随后用 `read` 取数据。连续采集时须循环 `read`，避免 SDK 队列溢出。超时、断线和缓冲溢出抛出 `omnibci:Device`。
+BLE 连接使用发现结果的 `endpoint`；当前 STM32/E73 固件广播名为 `OmniBCI-32CH`，SDK 也兼容旧名称 `OmniBCI32-BLE`。ESP32 和 STM32 使用不同 BLE 服务，`deviceType` 必须与发现时一致，不要把 MAC 地址当作 key。设备只允许一个控制进程连接。`connect` 等待配置确认。ESP32 的 `start` 等待进入流式采集；STM32 的 `start` 等待固件 START 确认（SDK 的 `Stm32Started` 结果），成功返回时首个样本不一定已经到达，随后用 `read` 取数据。连续采集时须循环 `read`，避免 SDK 队列溢出。超时、断线和缓冲溢出抛出 `omnibci:Device`。
 
 STM32 的 E73 BLE 路径要求实际 TX/RX 均为 2M、MTU 至少 153，并运行 E73 SPI 桥接固件；链路自检镜像不能完成 STM32 配置。STM32 固件须支持 32.0.5 系列的 AE/BE 完整配置事务，32.0.4 不兼容。当前固件仅提供板端 USB CDC 与 E73 BLE 直连，已移除 ESB Dongle 和双模式切换；本绑定不自动重连。
 
@@ -125,7 +135,11 @@ help omnibci.Board
 help omnibci.Board.connect
 help omnibci.Board.configure
 help omnibci.Board.read
+help omnibci.Board.readTriggers
+help omnibci.TriggerController
+help omnibci.TriggerController.connect
 help omnibci.decodeFrames
+help omnibci.decodeTriggers
 help omnibci.selftest
 ```
 
@@ -133,4 +147,10 @@ help omnibci.selftest
 
 ## 源码构建
 
-`dev/32ch` 已在 Windows R2023a 构建；短时 USB/BLE 及打标验收使用旧 SDK 固定提交（见 TRIGGER.md），当前升级未重跑实机测试，且尚未发布预编译 ZIP。请按 [dev/32ch 源码构建与开发验证](https://github.com/Omni-Intel/omnibci-matlab/blob/dev/32ch/DEVELOPMENT.md) 使用 `--branch dev/32ch` 克隆并自行构建。旧发布 ZIP 包含 MEX，无需 Rust 或 C++ MEX 编译器，但只提供 ESP32 八导功能。
+请按 [源码构建与开发验证](DEVELOPMENT.md) 使用 `--branch dev/32ch` 克隆并自行构建；设备支持和验证范围见本页开头。
+
+## 文档
+
+- [源码构建与开发验证](DEVELOPMENT.md)：工具链、MEX 构建和软件/硬件检查边界。
+- [触发发送与接收](TRIGGER.md)：独立事件队列、精确整数时间、双队列轮询及历史实测。
+- [SDK 兼容性判断](https://github.com/Omni-Intel/omnibci-sdk/blob/master/docs/compatibility.md)：设备、固件与调用方基线；发布复现应核对实际 SDK pin。

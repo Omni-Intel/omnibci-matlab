@@ -6,9 +6,12 @@
 %   Board        - Device connection, configuration and sample acquisition.
 %                  Select "esp32" (default) or "stm32" with the explicit
 %                  deviceType argument to connect and discover.
+%   Board.readTriggers - Drain STM32 hardware events separately from EEG.
+%   TriggerController  - Send external trigger codes through a serial port.
 %
 % Offline utilities
 %   decodeFrames - Decode complete eight-channel ESP32 USB frames.
+%   decodeTriggers - Decode complete STM32 hardware trigger packets.
 %   selftest     - Check package loading and decoding without hardware.
 %
 % Getting started
@@ -19,4 +22,6 @@
 %   raw 12 ADS1299 status bytes transmitted with each V3 frame. See README
 %   and TRIGGER.md for supported paths and validation scope.
 %
-%   See also omnibci.Board, omnibci.decodeFrames, omnibci.selftest.
+%   See also omnibci.Board, omnibci.Board.readTriggers,
+%       omnibci.TriggerController, omnibci.decodeFrames,
+%       omnibci.decodeTriggers, omnibci.selftest.

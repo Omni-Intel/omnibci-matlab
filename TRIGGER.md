@@ -1,5 +1,9 @@
 # Hardware trigger reception and dispatch
 
+This page describes the `dev/32ch` source API. Installation and the current SDK pin are listed in the [README validation table](README.md#验证状态); old Release ZIPs do not contain these STM32 APIs.
+
+## Dispatch and event fields
+
 `omnibci.TriggerController.connect(port, timeout)` opens the external generator via
 the Rust SDK. `send(code)` accepts 0..255 (including zero/repeats), `close()` is
 idempotent, and `isOpen()` reports port ownership. Success confirms host dispatch,
@@ -27,6 +31,10 @@ firmware clock diagnostic `ready=1`. This is a monotonic, ADC-referenced timebas
 it makes no UTC or host-clock accuracy claim. See the firmware
 [TIMING.md](https://github.com/Omni-Intel/omnibci-firmware-stm32/blob/main/stm32/TIMING.md).
 
+Read the diagnostic through the separate DFU CDC port (`mcumgr stat clock`), not through `Board`. This binding has no clock-readiness query; elapsed host time alone does not prove `ready=1`.
+
+## Poll both queues
+
 Sample and trigger queues are independent. Poll both regularly: the trigger queue
 holds 16,384 events. Overflow is an explicit acquisition fault; queued events remain
 available before the empty queue reports the fault. STOP retains tail events;
@@ -34,6 +42,29 @@ successfully acknowledged START clears the previous generation. Drain before clo
 ESP32 event polling is explicitly unsupported; its existing sample path is unchanged.
 `omnibci.decodeTriggers(bytes)` is a fresh-parser offline helper for complete STM32
 packets, excluding incomplete/CRC-invalid packets.
+
+Within an already started STM32 session, keep EEG and event histories separate. For example, the following loop uses `board` and `trigger` opened with the connection examples in [README](README.md#连接和采集) and [DEVELOPMENT](DEVELOPMENT.md#serial-trigger-dispatch):
+
+```matlab
+% Requires real hardware and a running STM32 acquisition.
+% For a timing experiment, first verify clock ready=1 as described above.
+batchHistory = {};
+eventHistory = {};
+sent = false;
+started = tic;
+while toc(started) < 5
+    if ~sent
+        trigger.send(7);          % Host dispatch, not reception confirmation
+        sent = true;
+    end
+    batchHistory{end+1} = board.read(1); % Timeout in seconds, not sample count
+    eventHistory{end+1} = board.readTriggers(); % May refer to an earlier batch
+end
+```
+
+The loop retains all returned data, including empty event arrays, and lets device errors propagate. Associate events with EEG by generation and anchor sequence, retaining the original integer times; do not pair them by loop iteration or arrival time. For a long experiment, consume or save both histories incrementally rather than letting them grow without bound. The snippet leaves session shutdown to its caller: stop sending first, call `board.stop()`, then drain pending EEG and events before `board.close()` or another `start()`. An empty post-stop EEG queue raises a timeout; do not suppress other device failures as if they were a normal end marker. Use function-scoped `onCleanup` handles for both opened devices, and call `close()` explicitly when cleanup errors must be observed.
+
+## Validation scope
 
 Historical hardware acceptance (2026-10-21): with STM32 32.2.3 and E73 0.5.1, USB
 and BLE each delivered 1,000/1,000 events with zero EEG gaps, CRC errors and
@@ -50,3 +81,5 @@ and `test_trigger_timing` passed, along with 21 native Rust tests,
 `cargo fmt --check` and `cargo clippy --locked -- -D warnings`. New SDK hardware
 tests were not rerun; the historical acceptance above does not validate the current
 pin.
+
+The local raw-evidence path above is not a downloadable archive. Related device-side protocol and trigger test summaries are retained in the firmware [validation index](https://github.com/Omni-Intel/omnibci-firmware-stm32/blob/a20876d6131ecbf51e4eda595f92f866303d99cf/docs/validation/README.md); those records cover their listed images and are not a substitute for the binding-specific acceptance run.
