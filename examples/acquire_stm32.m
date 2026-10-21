@@ -1,5 +1,5 @@
 function acquire_stm32(endpoint)
-%ACQUIRE_STM32 Acquire 32-channel STM32 data over USB/serial dongle or E73 BLE.
+%ACQUIRE_STM32 Acquire 32-channel STM32 data over board USB CDC or E73 BLE.
 %   ACQUIRE_STM32() scans for an STM32/E73 BLE device and acquires ten
 %   batches from the first result.
 %   ACQUIRE_STM32(ENDPOINT) connects to ENDPOINT instead, for example

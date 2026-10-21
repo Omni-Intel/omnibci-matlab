@@ -8,11 +8,11 @@ classdef Board < handle
     %
     %   Device types:
     %     "esp32" - Eight-channel ADS1299, USB CDC or reliable BLE. Default.
-    %     "stm32" - 32-channel STM32 V3 over USB, ESB dongle or E73 BLE.
+    %     "stm32" - 32-channel STM32 V3 over board USB CDC or E73 BLE.
     %               Fixed 250 Hz and SRB1; no SRB2 or sample-rate control.
-    %               This unreleased dev/32ch source adaptation provides no
-    %               wireless mode switch and no automatic reconnect. It has
-    %               passed short Windows R2023a USB/BLE and trigger tests.
+    %               Current firmware provides USB CDC and E73 BLE only; the
+    %               ESB dongle and dual-mode switching were removed. E73 BLE
+    %               requires 2M TX/RX and MTU >= 153. No automatic reconnect.
     %               See TRIGGER.md for tested scope and remaining platform limits.
     %
     %   Board Properties:
@@ -89,8 +89,8 @@ classdef Board < handle
             %   returned by discover(..., DEVICETYPE); do not construct a key
             %   from a MAC address. ESP32 and STM32 use different BLE
             %   services, so the device type must match the discovered board.
-            %   STM32 serial endpoints cover both direct USB and the ESB
-            %   dongle. Close other applications using the device first.
+            %   STM32 serial endpoints use the board USB CDC port. Close
+            %   other applications using the device first.
             %   Invalid endpoints, device types, connection failures and
             %   timeouts raise omnibci:Device.
             %

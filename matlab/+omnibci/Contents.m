@@ -1,6 +1,6 @@
 % OmniBCI MATLAB SDK
 %   Control ESP32-C3/ADS1299 eight-channel or STM32H563 32-channel
-%   acquisition over USB, serial dongle or BLE.
+%   acquisition over board USB CDC or BLE.
 %
 % Device interface
 %   Board        - Device connection, configuration and sample acquisition.
@@ -17,7 +17,6 @@
 %   syntax and help omnibci.Board.read for sample fields and units.
 %   STM32 uses fixed 250 Hz and SRB1, and its status matrix contains the
 %   raw 12 ADS1299 status bytes transmitted with each V3 frame. See README
-%   for supported paths and the unbuilt/unreleased status of this dev/32ch
-%   source adaptation; the adaptation has not been hardware-tested.
+%   and TRIGGER.md for supported paths and validation scope.
 %
 %   See also omnibci.Board, omnibci.decodeFrames, omnibci.selftest.
