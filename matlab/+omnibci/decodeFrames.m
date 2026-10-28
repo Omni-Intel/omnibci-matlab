@@ -1,28 +1,32 @@
 function batch = decodeFrames(bytes, gains)
-%DECODEFRAMES Decode complete OmniBCI USB frames without connecting to hardware.
+%DECODEFRAMES Decode complete eight-channel ESP32 USB frames offline.
 %   DATA = omnibci.decodeFrames(BYTES) decodes a uint8 row vector using a
 %   gain of 24 for all eight channels. BYTES may contain multiple frames.
 %   DATA = omnibci.decodeFrames(BYTES, GAINS) uses a 1-by-8 double gain vector
 %   whose entries are selected from [1 2 4 6 8 12 24]. GAINS must match the
 %   device settings used when capturing BYTES; it controls voltage scaling.
 %
+%   This offline function remains specific to the ESP32/ADS1299 protocol.
+%   It does not decode STM32 V3 128-byte frames or BLE notification packets.
+%
 %   DATA is a scalar struct. For N decoded frames its fields are:
-%     eeg_uv     - N-by-8 single, channel voltages in microvolts.
-%     raw_counts - N-by-8 int32, signed ADC counts.
-%     sequence   - N-by-1 uint32, frame sequence numbers.
-%     valid      - N-by-1 logical, SDK frame validity flags.
-%     mode       - N-by-1 uint8, frame acquisition modes.
-%     status     - N-by-3 uint8, ADS status bytes.
-%     crc_errors - Number of CRC failures detected in this call.
-%     sync_drop  - Number of bytes discarded while finding frame boundaries.
+%     eeg_uv       - N-by-8 single, channel voltages in microvolts.
+%     raw_counts   - N-by-8 int32, signed ADC counts.
+%     sequence     - N-by-1 uint32, frame sequence numbers.
+%     valid        - N-by-1 logical, SDK frame validity flags.
+%     mode         - N-by-1 uint8, frame acquisition modes.
+%     status       - N-by-3 uint8, ADS status bytes.
+%     crc_errors   - Number of CRC failures detected in this call.
+%     sync_drop    - Number of bytes discarded while finding frame boundaries.
+%     channel_count - 8, the number of decoded channels.
+%     status_bytes  - 3, the number of ADS status bytes per frame.
 %   Unlike Board.read, this function does not return acquisition generation,
 %   sample indices or timing fields. An empty input produces empty sample
 %   arrays with the listed column counts.
 %
 %   Each call creates a fresh parser: incomplete trailing frames are not
 %   retained between calls. CRC failures are reported in crc_errors and
-%   corrupt frames are excluded from the output. This function accepts USB
-%   protocol bytes, not BLE notification transport packets.
+%   corrupt frames are excluded from the output.
 %   Unsupported gains raise omnibci:Device; argument type and shape errors
 %   are reported by MATLAB argument validation.
 %

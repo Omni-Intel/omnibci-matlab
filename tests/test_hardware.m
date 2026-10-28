@@ -1,6 +1,8 @@
 function results = test_hardware(transports)
-%TEST_HARDWARE Exercise USB and BLE against a connected OmniBCI board.
-% Requires the board on COM8 and a discoverable BLE device named OmniBCI.
+%TEST_HARDWARE Exercise the ESP32 eight-channel USB and BLE paths.
+% Requires the board on COM8 and a discoverable ESP32 BLE device named
+% OmniBCI. This does not exercise the STM32/E73 32-channel backend; use
+% examples/acquire_stm32.m for a manual STM32 check.
 arguments
     transports (1,:) string = ["usb", "ble"]
 end
