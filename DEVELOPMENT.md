@@ -85,3 +85,5 @@ The opt-in `test_ble_lifetime(endpoint, deviceType)` exercises acquisition, clea
 ## Faulted LOFF cleanup
 
 STM32/E73 faults with possible excitation now attempt a confirmed stop followed by a matching LOFF=0 configuration before disconnecting. Background cleanup is bounded to 10 seconds and close also respects its caller deadline. The original fault remains visible and the session cannot resume. Lost confirmations or a disconnected transport retain the unconfirmed-excitation diagnostic. Tests cover overflow, missing acknowledgements, stale acknowledgements arriving before/during cleanup, and bounded shutdown. Claude Code using DeepSeek deepseek-flash[1m] contributed implementation and review; Codex reviewed it and fixed the stale-ACK ordering boundary.
+
+最终 BLE 复验曾出现一次 Windows ESP32 Not connected 连接错误；该进程正常以错误码退出。随后在新进程中重跑 ESP32 与 E73 的采集和立即清除 MEX 测试均通过，并确认进程退出码为 0。该记录保留连接瞬态限制，不将单次重试通过视为长时稳定性验收。
