@@ -21,7 +21,12 @@ sample_count = numel(batch.sequence);
 batch.sequence = normalizeVector(batch, 'sequence', sample_count, 'uint32');
 batch.valid = normalizeVector(batch, 'valid', sample_count, 'logical');
 batch.mode = normalizeVector(batch, 'mode', sample_count, 'uint8');
-if isfield(batch, 'source_timestamp_us') && isfield(batch, 'source_timestamp_valid')
+hasTime = isfield(batch, 'source_timestamp_us');
+hasValidity = isfield(batch, 'source_timestamp_valid');
+if xor(hasTime, hasValidity)
+    error('omnibci:InvalidData', 'Source timestamps and validity must be provided together.');
+end
+if hasTime
     batch.source_timestamp_us = normalizeVector(batch, 'source_timestamp_us', sample_count, 'uint32');
     batch.source_timestamp_valid = normalizeVector(batch, 'source_timestamp_valid', sample_count, 'logical');
 else

@@ -75,11 +75,6 @@ hardware was not tested, and ESB Dongle hardware was unavailable then and is ret
 from current firmware. This does not establish hard real-time 300/s scheduling in
 MATLAB. Local evidence: `D:/workspace/trigger-validation/cc-bindings`.
 
-Current upgrade validation: the bindings were upgraded to `e1f25b3...` and rebuilt
-as a Windows R2023a MEX. `test_offline`, `test_stm32_offline`, `test_trigger_controller`
-and `test_trigger_timing` passed, along with 21 native Rust tests,
-`cargo fmt --check` and `cargo clippy --locked -- -D warnings`. New SDK hardware
-tests were not rerun; the historical acceptance above does not validate the current
-pin.
+Current SDK 0.3.1 validation is recorded in [DEVELOPMENT](DEVELOPMENT.md#sdk-升级验证). The historical trigger run above does not validate the current pin; physical trigger dispatch was not repeated during this upgrade.
 
 The local raw-evidence path above is not a downloadable archive. Related device-side protocol and trigger test summaries are retained in the firmware [validation index](https://github.com/Omni-Intel/omnibci-firmware-stm32/blob/a20876d6131ecbf51e4eda595f92f866303d99cf/docs/validation/README.md); those records cover their listed images and are not a substitute for the binding-specific acceptance run.

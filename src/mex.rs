@@ -29,6 +29,42 @@ unsafe extern "C" {
 const MX_UINT8_CLASS: i32 = 9;
 const MX_REAL: i32 = 0;
 
+/// SDK shutdown is bounded and may leave an OS BLE close running. On Windows,
+/// retain this DLL until process termination so `clear mex` cannot unmap code
+/// underneath those threads or WinRT callbacks. Explicit Board.close still
+/// releases device ownership; replacing the binary requires restarting MATLAB.
+#[cfg(target_os = "windows")]
+pub(super) fn retain_for_background_work() -> Result<(), String> {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetModuleHandleExW(flags: u32, address: *const u16, module: *mut *mut c_void) -> i32;
+    }
+    static RETAINED: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+    RETAINED
+        .get_or_init(|| {
+            let mut module = ptr::null_mut();
+            // GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS.
+            // SAFETY: the function address belongs to this loaded DLL; module is
+            // a writable output pointer. PIN intentionally has no FreeLibrary.
+            let success = unsafe {
+                GetModuleHandleExW(
+                    0x1 | 0x4,
+                    retain_for_background_work as *const () as *const u16,
+                    &mut module,
+                )
+            };
+            if success == 0 {
+                Err(format!(
+                    "Cannot retain the MEX for background device work: {}",
+                    std::io::Error::last_os_error()
+                ))
+            } else {
+                Ok(())
+            }
+        })
+        .clone()
+}
+
 unsafe fn response(bytes: &[u8]) -> *mut MxArray {
     // SAFETY: MATLAB owns the returned mxArray; both data pointers are valid for the duration of the copy.
     let result = unsafe { mxCreateNumericMatrix(1, bytes.len(), MX_UINT8_CLASS, MX_REAL) };

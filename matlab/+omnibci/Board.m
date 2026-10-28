@@ -349,15 +349,17 @@ classdef Board < handle
             %     sample_time_s  - N-by-1 double, sample_indices/rate in seconds.
             %     received_age_s - Seconds since SDK host delivery of this
             %                      batch, measured when the request is handled.
-            %     source_timestamp_us - N-by-1 uint32 device DRDY microseconds,
-            %                      modulo 2^32; STM32 only when valid below.
+            %     source_timestamp_us - N-by-1 uint32 device microseconds,
+            %                      modulo 2^32; see firmware semantics below.
             %     source_timestamp_valid - N-by-1 logical availability mask.
             %                      Zero with true validity is a wrapped time;
-            %                      false denotes unavailable time (e.g. ESP32).
+            %                      false denotes an unavailable timestamp field.
             %     channel_count  - Scalar double, C above.
             %     status_bytes   - Scalar double, S above.
             %   sample_time_s and received_age_s are not hardware timestamps.
             %   source_timestamp_us is device time, not UTC or host time.
+            %   STM32 and ESP32 0.26.1 report DRDY time. Older ESP32 serial-v1
+            %   firmware reports framing time; availability does not imply DRDY.
             %   N may be zero, one or many; empty batches keep C and S columns.
             %
             %   After stop(), read can drain remaining queued batches. Once
@@ -385,7 +387,7 @@ classdef Board < handle
         end
         function stop(obj, timeout)
             %STOP Stop acquisition while preserving queued samples.
-            %   B.stop() uses a 5-second timeout. B.stop(TIMEOUT) sets a
+            %   B.stop() uses a 15-second timeout. B.stop(TIMEOUT) sets a
             %   finite timeout in seconds, with 0 < TIMEOUT <= 60.
             %   Waits for the SDK stop procedure to finish and return to
             %   Ready. Calling stop while already Ready succeeds.
@@ -403,13 +405,13 @@ classdef Board < handle
             %       omnibci.Board.close.
             arguments
                 obj (1,1) omnibci.Board
-                timeout (1,1) double {mustBePositive} = 5
+                timeout (1,1) double {mustBePositive} = 15
             end
             native(struct('command', 'stop', 'handle', obj.requireOpen(), 'timeout', timeout));
         end
         function close(obj, timeout)
             %CLOSE Close the device connection and release native resources.
-            %   B.close() uses a 6-second timeout. B.close(TIMEOUT) sets a
+            %   B.close() uses a 20-second timeout. B.close(TIMEOUT) sets a
             %   finite timeout in seconds, with 0 < TIMEOUT <= 60.
             %   Stops active acquisition and waits for worker shutdown.
             %   To retain tail data, call stop and read before close.
@@ -437,7 +439,7 @@ classdef Board < handle
             %   See also omnibci.Board.stop, omnibci.Board.delete.
             arguments
                 obj (1,1) omnibci.Board
-                timeout (1,1) double {mustBePositive} = 6
+                timeout (1,1) double {mustBePositive} = 20
             end
             if obj.NativeHandle ~= 0
                 native(struct('command', 'close', 'handle', obj.NativeHandle, 'timeout', timeout));

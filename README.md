@@ -1,6 +1,6 @@
 # OmniBCI MATLAB SDK
 
-> **开发分支（`dev/32ch`）**：STM32 32 导与硬件触发功能需要从源码构建，旧 Release ZIP 仅支持 ESP32 八导。安装前请看下方验证状态，构建步骤见 [DEVELOPMENT](DEVELOPMENT.md)。
+> **当前源码**：STM32 32 导与硬件触发功能需要从源码构建，旧 Release ZIP 仅支持 ESP32 八导。安装前请看下方验证状态，构建步骤见 [DEVELOPMENT](DEVELOPMENT.md)。
 
 本分支源码通过 Rust `omnibci-sdk` 控制 ESP32-C3 + ADS1299 八导 USB CDC / reliable BLE，以及 STM32H563 + ADS1299 32 导的板端 USB CDC 或 E73 BLE 采集；STM32 固件已移除 ESB Dongle 和双模式切换。两种设备均为 250 Hz；STM32 固定 SRB1。
 
@@ -9,7 +9,7 @@
 | 基线 | 已验证范围 | 限制与证据 |
 | --- | --- | --- |
 | 旧 Release ZIP | Windows R2023a ESP32 USB/BLE 短时采集 | 不包含本分支 STM32 适配；其他平台见安装表 |
-| 当前 `dev/32ch`，SDK `e1f25b3a6d272e5040929c53b331d45738ff6d73` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查 | SDK 升级未重跑硬件，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
+| 当前源码，SDK `54fbad405c05bfef813f7acb323e5f0c73153092` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查、USB 8/32 导短时采集 | BLE、触发器和长时运行未重测，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
 | 旧 SDK `aa9ab512ecf6243646fbbb23e9432e3c79eac1ec` | STM32 32.2.3 / E73 0.5.1 的 USB/BLE 短时采集与打标 | 历史结果不能验证当前 pin；版本、事件数与边界见 [TRIGGER](TRIGGER.md) |
 
 当前源码的长时采集、掉线、LOFF 关闭及 Linux/macOS 实机验收仍需单独完成。安装产物的绑定版本 0.2.1 不能唯一标识 SDK；可用 `info = omnibci.Board.version()` 后检查 `info.sdk_revision`。旧 ZIP 可能没有该字段。
@@ -18,7 +18,7 @@
 
 ### 旧版发布 ZIP（仅 ESP32 八导）
 
-从 GitHub Releases 下载与 MATLAB 架构匹配的 ZIP；用 `computer('arch')` 和 `mexext` 确认架构。这些 ZIP 不含 STM32 适配，也不代表 `dev/32ch` 源码；旧包的 `omnibci.Board.version()` 返回绑定与 SDK 版本，可能没有本分支新增的 `sdk_revision` 字段。
+从 GitHub Releases 下载与 MATLAB 架构匹配的 ZIP；用 `computer('arch')` 和 `mexext` 确认架构。这些 ZIP 不含 STM32 适配，也不代表当前源码；旧包的 `omnibci.Board.version()` 返回绑定与 SDK 版本，可能没有本分支新增的 `sdk_revision` 字段。
 
 | ZIP 后缀 | MEX 扩展名 | 构建及最低 MATLAB 版本 | 运行验证 |
 | --- | --- | --- | --- |
@@ -154,3 +154,5 @@ help omnibci.selftest
 - [源码构建与开发验证](DEVELOPMENT.md)：工具链、MEX 构建和软件/硬件检查边界。
 - [触发发送与接收](TRIGGER.md)：独立事件队列、精确整数时间、双队列轮询及历史实测。
 - [SDK 兼容性判断](https://github.com/Omni-Intel/omnibci-sdk/blob/master/docs/compatibility.md)：设备、固件与调用方基线；发布复现应核对实际 SDK pin。
+
+Windows 上连接设备或扫描 BLE 后，MEX 将驻留至 MATLAB 退出，以保护尚未完成的后台清理。更新或重建 MEX 前请重启 MATLAB；`clear mex` 不会释放该模块。设备仍需显式 `close()`，详见 [开发说明](DEVELOPMENT.md#windows-mex-lifetime)。

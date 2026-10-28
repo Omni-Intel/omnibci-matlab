@@ -374,6 +374,10 @@ fn samples_json(
 }
 
 fn execute(req: Request) -> Result<Value, String> {
+    #[cfg(all(feature = "mex", target_os = "windows"))]
+    if matches!(req.command.as_str(), "connect" | "discover_ble") {
+        mex::retain_for_background_work()?;
+    }
     if req.command.starts_with("trigger_") {
         return trigger::execute(req);
     }
@@ -482,6 +486,8 @@ fn execute(req: Request) -> Result<Value, String> {
                 "sequence": frames.iter().map(|f| f.sequence).collect::<Vec<_>>(),
                 "valid": frames.iter().map(|f| f.valid).collect::<Vec<_>>(),
                 "mode": frames.iter().map(|f| f.mode).collect::<Vec<_>>(),
+                "source_timestamp_us": frames.iter().map(|f| f.source_timestamp_us.unwrap_or(0)).collect::<Vec<_>>(),
+                "source_timestamp_valid": frames.iter().map(|f| f.source_timestamp_us.is_some()).collect::<Vec<_>>(),
                 "status": frames.iter().map(|f| &f.status).collect::<Vec<_>>(),
                 "crc_errors": decoder.parser.crc_bad,
                 "sync_drop": decoder.parser.sync_drop,
@@ -502,7 +508,7 @@ fn execute(req: Request) -> Result<Value, String> {
                     Ok(json!(true))
                 }
                 "stop" => {
-                    device.stop(duration(req.timeout, 5.0)?)?;
+                    device.stop(duration(req.timeout, 15.0)?)?;
                     Ok(json!(true))
                 }
                 "configure" => {
@@ -518,7 +524,7 @@ fn execute(req: Request) -> Result<Value, String> {
                 }
                 "close" => {
                     // Remove only after successful close; a timed-out session can be retried.
-                    device.close(duration(req.timeout, 6.0)?)?;
+                    device.close(duration(req.timeout, 20.0)?)?;
                     state.devices.remove(&req.handle);
                     Ok(json!(true))
                 }

@@ -59,6 +59,7 @@ assert(isequal(batch.raw_counts, counts));
 assert(isequal(batch.sequence, uint32(17)));
 assert(isequal(batch.status, uint8([192 0 1])));
 assert(batch.valid);
+assert(batch.source_timestamp_valid && batch.source_timestamp_us == uint32(0));
 expected = double(counts) * (4.5e6 / (8388607 * 24));
 assert(max(abs(double(batch.eeg_uv) - expected)) < 0.05);
 
@@ -67,6 +68,19 @@ invalid(21) = bitxor(invalid(21), uint8(1));
 bad = omnibci.decodeFrames(invalid);
 assert(isempty(bad.sequence));
 assert(bad.crc_errors == 1);
+
+% A half-present timestamp pair is malformed, not unavailable timing.
+for field = {'source_timestamp_us', 'source_timestamp_valid'}
+    malformed = rmfield(batch, field{1});
+    try
+        normalizeBatch(malformed);
+        error('test:ExpectedFailure', 'Incomplete timestamp pair was accepted');
+    catch exception
+        assert(strcmp(exception.identifier, 'omnibci:InvalidData'));
+    end
+end
+legacy = normalizeBatch(rmfield(batch, {'source_timestamp_us', 'source_timestamp_valid'}));
+assert(~legacy.source_timestamp_valid && legacy.source_timestamp_us == uint32(0));
 
 try
     omnibci.Board.connect("invalid");
