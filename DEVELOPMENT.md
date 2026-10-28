@@ -58,9 +58,9 @@ test_hardware("ble")  % 扫描名为 OmniBCI 的 ESP32 设备
 
 2026-10-29 将 SDK 固定到 0.3.1 主线提交 `54fbad405c05bfef813f7acb323e5f0c73153092`，保留公开 MATLAB API 与绑定版本 0.2.1。此次升级不新增自动型号识别或 live-LOFF 的 MATLAB 参数。
 
-Windows R2023a MEX 重新构建成功；21 个原生 Rust 测试、`cargo fmt --check` 与严格 Clippy 通过。重新构建后 `test_offline`、`test_stm32_offline`、`test_trigger_controller` 和 `test_trigger_timing` 通过，运行时版本为 SDK 0.3.1，revision 与子模块一致。独立进程的 `test_installation` 通过；Windows ZIP 构建后解压到独立目录，包内 MEX 的 selftest 与版本核对通过。固定 SDK 的 176 个单元测试和 10 个集成测试通过。
+Windows R2023a MEX 重新构建成功；27 个原生 Rust 测试、`cargo fmt --check` 与严格 Clippy 通过。重新构建后 `test_offline`、`test_stm32_offline`、`test_trigger_controller` 和 `test_trigger_timing` 通过，运行时版本为 SDK 0.3.1，revision 与子模块一致。独立进程的 `test_installation` 通过；Windows ZIP 构建后解压到独立目录，包内 MEX 的 selftest 与版本核对通过。固定 SDK 的 176 个单元测试和 10 个集成测试通过。
 
-本次 MEX 在 COM25 STM32 32.3.0 USB 32 导与 COM8 ESP32 dual-stack_v0.25.4 USB 8 导分别完成连接、配置确认、至少 250 个样本读取、通道形状检查、停止和关闭；STM32 同时检查每样本 12 字节状态。该短时验证不覆盖 BLE、阻抗激励、触发器、掉线恢复或长时稳定性，也不代表 Linux/macOS 验收。旧 SDK 的触发测试结果保留在 TRIGGER.md。
+本次 MEX 在 COM25 STM32 32.3.0 USB 32 导与 COM8 ESP32 dual-stack_v0.25.4 USB 8 导分别完成连接、配置确认、至少 250 个样本读取、通道形状检查、停止和关闭；STM32 同时检查每样本 12 字节状态。另外，ESP32 0.26.1（44:B1:76:47:32:7A）和 STM32 32.3.0 / E73 0.6.0（CD:FB:E9:DC:82:6E）的 BLE 采集与立即清除 MEX 测试通过，进程正常退出。该短时验证不覆盖阻抗激励、触发器、掉线恢复或长时稳定性，也不代表 Linux/macOS 验收。旧 SDK 的触发测试结果保留在 TRIGGER.md。
 
 ## Serial trigger dispatch
 
@@ -81,3 +81,7 @@ timestamp. Acquisition event reception is separate from this controller.
 The SDK may finish OS BLE cleanup after a bounded device close returns. The Windows MEX retains its module before starting connection or BLE discovery work using `GetModuleHandleExW(PIN | FROM_ADDRESS)` so `clear mex` and MATLAB shutdown cannot unmap active worker code. Device ownership is still released by explicit close; restarting MATLAB is required before replacing the binary after any connection attempt or BLE scan. This is a module lifetime guarantee, not a claim that OS cleanup always succeeds. See [Microsoft module lifetime documentation](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandleexw).
 
 The opt-in `test_ble_lifetime(endpoint, deviceType)` exercises acquisition, clearing the MEX while connected, confirmed stop/close and immediate clearing again. Run it in a separate MATLAB process and verify that the process exits successfully; a printed pass line alone cannot detect an exit-time crash.
+
+## Faulted LOFF cleanup
+
+STM32/E73 faults with possible excitation now attempt a confirmed stop followed by a matching LOFF=0 configuration before disconnecting. Background cleanup is bounded to 10 seconds and close also respects its caller deadline. The original fault remains visible and the session cannot resume. Lost confirmations or a disconnected transport retain the unconfirmed-excitation diagnostic. Tests cover overflow, missing acknowledgements, stale acknowledgements arriving before/during cleanup, and bounded shutdown. Claude Code using DeepSeek deepseek-flash[1m] contributed implementation and review; Codex reviewed it and fixed the stale-ACK ordering boundary.
