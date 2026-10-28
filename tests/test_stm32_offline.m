@@ -8,7 +8,7 @@ function test_stm32_offline()
 %   exercised without hardware.
 versions = omnibci.Board.version();
 assert(isfield(versions, 'sdk_revision'));
-assert(strcmp(versions.sdk_revision, 'e1f25b3a6d272e5040929c53b331d45738ff6d73'));
+assert(strcmp(versions.sdk_revision, '54fbad405c05bfef813f7acb323e5f0c73153092'));
 
 % decodeFrames must remain the backwards-compatible eight-channel path.
 batch = omnibci.decodeFrames(uint8([]));
