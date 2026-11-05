@@ -1,5 +1,7 @@
 # OmniBCI MATLAB SDK
 
+当前开发分支将 STM32/E73 托管会话迁入 SDK `9567fbc671a33c2d59b4037fa3330f43f70f3995`，绑定只保留语言接口与数据转换。此次迁移的验证以离线测试为准；下文旧 SDK 的实机记录不代表此提交已经实机验证。
+
 > **当前源码**：STM32 32 导与硬件触发功能需要从源码构建，旧 Release ZIP 仅支持 ESP32 八导。安装前请看下方验证状态，构建步骤见 [DEVELOPMENT](DEVELOPMENT.md)。
 
 本分支源码通过 Rust `omnibci-sdk` 控制 ESP32-C3 + ADS1299 八导 USB CDC / reliable BLE，以及 STM32H563 + ADS1299 32 导的板端 USB CDC 或 E73 BLE 采集；STM32 固件已移除 ESB Dongle 和双模式切换。两种设备均为 250 Hz；STM32 固定 SRB1。
@@ -9,7 +11,7 @@
 | 基线 | 已验证范围 | 限制与证据 |
 | --- | --- | --- |
 | 旧 Release ZIP | Windows R2023a ESP32 USB/BLE 短时采集 | 不包含本分支 STM32 适配；其他平台见安装表 |
-| 当前源码，SDK `54fbad405c05bfef813f7acb323e5f0c73153092` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查、USB/BLE 8/32 导短时采集及 Windows MEX 卸载回归 | 触发器和长时运行未重测，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
+| 迁移前源码，SDK `54fbad405c05bfef813f7acb323e5f0c73153092` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查、USB/BLE 8/32 导短时采集及 Windows MEX 卸载回归 | 触发器和长时运行未重测，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
 | 旧 SDK `aa9ab512ecf6243646fbbb23e9432e3c79eac1ec` | STM32 32.2.3 / E73 0.5.1 的 USB/BLE 短时采集与打标 | 历史结果不能验证当前 pin；版本、事件数与边界见 [TRIGGER](TRIGGER.md) |
 
 当前源码的长时采集、掉线、LOFF 关闭及 Linux/macOS 实机验收仍需单独完成。安装产物的绑定版本 0.2.1 不能唯一标识 SDK；可用 `info = omnibci.Board.version()` 后检查 `info.sdk_revision`。旧 ZIP 可能没有该字段。

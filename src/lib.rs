@@ -1,7 +1,7 @@
 //! Small JSON C ABI for MATLAB. Device ownership and protocol logic stay in omnibci-sdk.
 //!
 //! ESP32 sessions use the SDK's synchronous `session::Device`; STM32/E73 sessions
-//! use the synchronous owner in [`stm32_session`], which wraps the SDK's low-level
+//! use the SDK synchronous owner re-exported by [`stm32_session`], which wraps low-level
 //! transport spawn APIs. Neither path reimplements a wire protocol here.
 mod stm32_session;
 mod trigger;
@@ -29,7 +29,7 @@ use std::{
 mod mex;
 
 /// SDK baseline compiled into the binding. Update together with the SDK submodule.
-const SDK_REVISION: &str = "54fbad405c05bfef813f7acb323e5f0c73153092";
+const SDK_REVISION: &str = "9567fbc671a33c2d59b4037fa3330f43f70f3995";
 
 #[derive(Deserialize)]
 struct Request {

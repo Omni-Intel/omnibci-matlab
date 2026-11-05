@@ -4,7 +4,7 @@
 
 当前源码已在 Windows MATLAB R2023a 构建；STM32 32 导 USB/BLE、打标器发送及硬件事件读取的短时实机验证使用旧 SDK 固定提交，详见 TRIGGER.md。本次 SDK 0.3.1 的 USB 采集验证见下方 SDK 升级验证。旧发布包仍仅含 ESP32 八导功能。
 
-需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `54fbad405c05bfef813f7acb323e5f0c73153092`（`omnibci-sdk` 0.3.1），并启用 `esp32`、`e73-ble` 与 `trigger` feature；绑定自身不提升版本号。
+需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `9567fbc671a33c2d59b4037fa3330f43f70f3995`（`omnibci-sdk` 0.3.1），并启用 `esp32`、`e73-ble` 与 `trigger` feature；绑定自身不提升版本号。
 
 ```sh
 git clone --recurse-submodules https://github.com/Omni-Intel/omnibci-matlab.git
@@ -87,3 +87,9 @@ The opt-in `test_ble_lifetime(endpoint, deviceType)` exercises acquisition, clea
 STM32/E73 faults with possible excitation now attempt a confirmed stop followed by a matching LOFF=0 configuration before disconnecting. Background cleanup is bounded to 10 seconds and close also respects its caller deadline. The original fault remains visible and the session cannot resume. Lost confirmations or a disconnected transport retain the unconfirmed-excitation diagnostic. Tests cover overflow, missing acknowledgements, stale acknowledgements arriving before/during cleanup, and bounded shutdown. Claude Code using DeepSeek deepseek-flash[1m] contributed implementation and review; Codex reviewed it and fixed the stale-ACK ordering boundary.
 
 最终 BLE 复验曾出现一次 Windows ESP32 Not connected 连接错误；该进程正常以错误码退出。随后在新进程中重跑 ESP32 与 E73 的采集和立即清除 MEX 测试均通过，并确认进程退出码为 0。该记录保留连接瞬态限制，不将单次重试通过视为长时稳定性验收。
+
+## Shared managed-session migration
+
+STM32/E73 ownership now comes from `omnibci_sdk::session::Stm32Device`; the binding re-exports it and converts typed snapshots to MATLAB JSON. The 18 device-state regressions formerly in this binding are retained in SDK tests. The registry disposal regression remains here and uses a simulated SDK driver to verify that failed close still removes the handle.
+
+Validation for this pin: 9 Rust tests, strict all-target clippy, MEX rebuild in Windows MATLAB R2023a, and `test_offline`, `test_stm32_offline`, `test_trigger_controller`, `test_trigger_timing`. No devices were opened. Earlier hardware records apply only to their stated SDK revisions.
