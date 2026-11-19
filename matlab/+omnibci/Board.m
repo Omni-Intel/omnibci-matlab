@@ -9,10 +9,11 @@ classdef Board < handle
     %   Device types:
     %     "esp32" - Eight-channel ADS1299, USB CDC or reliable BLE. Default.
     %     "stm32" - 32-channel STM32 V3 over board USB CDC or E73 BLE.
-    %               Fixed 250 Hz and SRB1; no SRB2 or sample-rate control.
-    %               Current firmware provides USB CDC and E73 BLE only; the
-    %               ESB dongle and dual-mode switching were removed. E73 BLE
-    %               requires 2M TX/RX and MTU >= 153. No automatic reconnect.
+    %               Fixed SRB1; supports 250, 500 or 1000 Hz sample_rate_hz
+    %               (default 250 Hz) with compatible firmware. Current firmware
+    %               provides USB CDC and E73 BLE only; the ESB dongle and
+    %               dual-mode switching were removed. E73 BLE requires 2M TX/RX
+    %               and MTU >= 153. No automatic reconnect.
     %               See TRIGGER.md for tested scope and remaining platform limits.
     %
     %   Board Properties:
@@ -214,9 +215,9 @@ classdef Board < handle
             %GETCONFIG Return the cached device configuration.
             %   For an ESP32 board, C is a scalar struct with reference,
             %   mode, enabled_mask, bias_mask, srb2_mask, gains and verified.
-            %   For an STM32 board, C has mode, enabled_mask, bias_mask,
-            %   loff_mask, gains and verified, with 32 gains. Numeric fields
-            %   are MATLAB doubles; verified is logical. See configure for
+            %   For an STM32 board, C has mode, sample_rate_hz, enabled_mask,
+            %   bias_mask, loff_mask, gains and verified, with 32 gains. Numeric
+            %   fields are MATLAB doubles; verified is logical. See configure for
             %   field meanings and allowed values.
             %
             %   This reads the session snapshot, not a fresh device query.
@@ -260,9 +261,12 @@ classdef Board < handle
             %                    lead-off excitation is allowed only in modes
             %                    0..2. Zero disables excitation.
             %     gains        - 32 values from [1 2 4 6 8 12 24].
-            %   The STM32 backend is fixed to 250 Hz and SRB1 and has no
-            %   SRB2 or sample-rate field. Mode and masks are JSON numbers;
-            %   the native bridge and SDK validate range and mask subsets.
+            %   Optional STM32 field:
+            %     sample_rate_hz - 250 (default), 500, or 1000 Hz (requires
+            %                    compatible firmware).
+            %   The STM32 backend is fixed to SRB1 and has no SRB2 field. Mode
+            %   and masks are JSON numbers; the native bridge and SDK validate
+            %   range and mask subsets.
             %
             %   The configuration shape must match DeviceType; mixing ESP32
             %   and STM32 fields raises omnibci:Configuration. Missing fields
@@ -345,7 +349,8 @@ classdef Board < handle
             %     sample_indices - N-by-1 uint64, sequence-derived indices;
             %                      missing samples leave gaps in this axis.
             %     generation     - uint64 scalar identifying the acquisition.
-            %     sample_rate_hz - Sampling frequency in Hz (currently 250).
+            %     sample_rate_hz - Sampling frequency in Hz (250 for ESP32;
+            %                      250, 500 or 1000 for STM32).
             %     sample_time_s  - N-by-1 double, sample_indices/rate in seconds.
             %     received_age_s - Seconds since SDK host delivery of this
             %                      batch, measured when the request is handled.
@@ -509,6 +514,15 @@ if ~isscalar(config.mode) || ~isnumeric(config.mode) || ~isreal(config.mode) || 
         ~isfinite(config.mode) || config.mode < 0 || config.mode > 4 || ...
         config.mode ~= floor(config.mode)
     error('omnibci:Configuration', 'mode must be a numeric integer from 0 to 4.');
+end
+if isfield(config, 'sample_rate_hz')
+    rate = config.sample_rate_hz;
+    if ~isscalar(rate) || ~isnumeric(rate) || ~isreal(rate) || ...
+            ~isfinite(rate) || ~ismember(rate, [250 500 1000])
+        error('omnibci:Configuration', ...
+            'sample_rate_hz must be 250, 500, or 1000.');
+    end
+    config.sample_rate_hz = uint16(rate);
 end
 validateStm32Mask(config.enabled_mask, 'enabled_mask');
 validateStm32Mask(config.bias_mask, 'bias_mask');

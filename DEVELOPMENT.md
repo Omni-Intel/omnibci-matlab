@@ -4,7 +4,7 @@
 
 当前源码已在 Windows MATLAB R2023a 构建；STM32 32 导 USB/BLE、打标器发送及硬件事件读取的短时实机验证使用旧 SDK 固定提交，详见 TRIGGER.md。本次 SDK 0.3.1 的 USB 采集验证见下方 SDK 升级验证。旧发布包仍仅含 ESP32 八导功能。
 
-需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `9567fbc671a33c2d59b4037fa3330f43f70f3995`（`omnibci-sdk` 0.3.1），并启用 `esp32`、`e73-ble` 与 `trigger` feature；绑定自身不提升版本号。
+需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `1f1cae5929b448e66c48794dd24348879426ac95`（`omnibci-sdk` 0.5.1），并启用 `esp32`、`e73-ble` 与 `trigger` feature；绑定自身不提升版本号。
 
 ```sh
 git clone --recurse-submodules https://github.com/Omni-Intel/omnibci-matlab.git

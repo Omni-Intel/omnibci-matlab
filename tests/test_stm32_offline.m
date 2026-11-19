@@ -7,8 +7,9 @@ function test_stm32_offline()
 %   genuine ADS1299 status bytes from each V3 frame; that path cannot be
 %   exercised without hardware.
 versions = omnibci.Board.version();
+assert(strcmp(versions.sdk, '0.5.1'));
 assert(isfield(versions, 'sdk_revision'));
-assert(strcmp(versions.sdk_revision, '6e17c1a7f4c06943927a91d64da3888a62840756'));
+assert(strcmp(versions.sdk_revision, '1f1cae5929b448e66c48794dd24348879426ac95'));
 
 % decodeFrames must remain the backwards-compatible eight-channel path.
 batch = omnibci.decodeFrames(uint8([]));

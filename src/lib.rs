@@ -29,7 +29,7 @@ use std::{
 mod mex;
 
 /// SDK baseline compiled into the binding. Update together with the SDK submodule.
-const SDK_REVISION: &str = "6e17c1a7f4c06943927a91d64da3888a62840756";
+const SDK_REVISION: &str = "1f1cae5929b448e66c48794dd24348879426ac95";
 
 #[derive(Deserialize)]
 struct Request {
@@ -94,6 +94,10 @@ impl From<ConfigInput> for FrontendConfig {
     }
 }
 
+fn default_sample_rate_hz() -> u16 {
+    250
+}
+
 /// STM32 V3 configuration carried as JSON numbers. `enabled_mask`, `bias_mask`
 /// and `loff_mask` must fit `u32`; MATLAB jsonencode emits exact integers for
 /// uint32-compatible doubles. `verified` is accepted and ignored so the
@@ -102,6 +106,8 @@ impl From<ConfigInput> for FrontendConfig {
 #[serde(deny_unknown_fields)]
 struct Stm32ConfigInput {
     mode: u8,
+    #[serde(default = "default_sample_rate_hz")]
+    sample_rate_hz: u16,
     enabled_mask: u32,
     bias_mask: u32,
     loff_mask: u32,
@@ -115,6 +121,7 @@ impl From<Stm32ConfigInput> for Stm32Configuration {
     fn from(value: Stm32ConfigInput) -> Self {
         let Stm32ConfigInput {
             mode,
+            sample_rate_hz,
             enabled_mask,
             bias_mask,
             loff_mask,
@@ -123,6 +130,7 @@ impl From<Stm32ConfigInput> for Stm32Configuration {
         } = value;
         Self {
             mode,
+            sample_rate_hz,
             enabled: enabled_mask,
             bias: bias_mask,
             loff: loff_mask,
@@ -276,6 +284,7 @@ fn config_json(config: FrontendConfig) -> Value {
 fn stm32_config_json(config: Stm32Configuration) -> Value {
     json!({
         "mode": config.mode,
+        "sample_rate_hz": config.sample_rate_hz,
         "enabled_mask": config.enabled,
         "bias_mask": config.bias,
         "loff_mask": config.loff,
@@ -632,14 +641,32 @@ mod tests {
     #[test]
     fn stm32_config_rejects_wrong_device_pair_and_untrusted_values() {
         let valid = json!({
-            "mode": 0, "enabled_mask": 4294967295u32, "bias_mask": 4294967295u32,
-            "loff_mask": 0, "gains": vec![24; 32]
+            "mode": 0, "sample_rate_hz": 250, "enabled_mask": 4294967295u32,
+            "bias_mask": 4294967295u32, "loff_mask": 0, "gains": vec![24; 32]
         });
         let parsed: Stm32ConfigInput = serde_json::from_value(valid.clone()).unwrap();
         assert!(Stm32Configuration::from(parsed).validate().is_ok());
+        for rate in [250u16, 500, 1000] {
+            let mut with_rate = valid.clone();
+            with_rate["sample_rate_hz"] = json!(rate);
+            let parsed: Stm32ConfigInput = serde_json::from_value(with_rate).unwrap();
+            let config = Stm32Configuration::from(parsed);
+            assert_eq!(config.sample_rate_hz, rate);
+            assert!(config.validate().is_ok());
+        }
+        let omitted_rate = json!({
+            "mode": 0, "enabled_mask": 4294967295u32, "bias_mask": 4294967295u32,
+            "loff_mask": 0, "gains": vec![24; 32]
+        });
+        let parsed: Stm32ConfigInput = serde_json::from_value(omitted_rate).unwrap();
+        assert_eq!(Stm32Configuration::from(parsed).sample_rate_hz, 250);
         let mut invalid = vec![];
         for (key, value) in [
             ("mode", json!(5)),
+            ("sample_rate_hz", json!(0)),
+            ("sample_rate_hz", json!(125)),
+            ("sample_rate_hz", json!(2000)),
+            ("sample_rate_hz", json!(true)),
             ("enabled_mask", json!(true)),
             ("enabled_mask", json!(4294967296u64)),
             ("enabled_mask", json!(-1)),
