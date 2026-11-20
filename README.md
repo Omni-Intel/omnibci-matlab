@@ -1,15 +1,17 @@
 # OmniBCI MATLAB SDK
 
+当前开发分支基于 `omnibci-sdk` 0.5.1（提交 `c5be885d801611ca82d093ea43baaf47e5790910`），STM32/E73 托管会话位于 SDK 中，绑定只保留语言接口与数据转换。此次更新的验证以离线测试为准；下文旧 SDK 的实机记录不代表此提交已经实机验证。
+
 > **当前源码**：STM32 32 导与硬件触发功能需要从源码构建，旧 Release ZIP 仅支持 ESP32 八导。安装前请看下方验证状态，构建步骤见 [DEVELOPMENT](DEVELOPMENT.md)。
 
-本分支源码通过 Rust `omnibci-sdk` 控制 ESP32-C3 + ADS1299 八导 USB CDC / reliable BLE，以及 STM32H563 + ADS1299 32 导的板端 USB CDC 或 E73 BLE 采集；STM32 固件已移除 ESB Dongle 和双模式切换。两种设备均为 250 Hz；STM32 固定 SRB1。
+本分支源码通过 Rust `omnibci-sdk` 控制 ESP32-C3 + ADS1299 八导 USB CDC / reliable BLE（250 Hz），以及 STM32H563 + ADS1299 32 导的板端 USB CDC 或 E73 BLE 采集（支持 250 / 500 / 1000 Hz 采样率配置，默认 250 Hz）；STM32 固件已移除 ESB Dongle 和双模式切换，固定 SRB1。
 
 ## 验证状态
 
 | 基线 | 已验证范围 | 限制与证据 |
 | --- | --- | --- |
 | 旧 Release ZIP | Windows R2023a ESP32 USB/BLE 短时采集 | 不包含本分支 STM32 适配；其他平台见安装表 |
-| 当前源码，SDK `54fbad405c05bfef813f7acb323e5f0c73153092` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查、USB/BLE 8/32 导短时采集及 Windows MEX 卸载回归 | 触发器和长时运行未重测，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
+| 迁移前源码，SDK `54fbad405c05bfef813f7acb323e5f0c73153092` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查、USB/BLE 8/32 导短时采集及 Windows MEX 卸载回归 | 触发器和长时运行未重测，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
 | 旧 SDK `aa9ab512ecf6243646fbbb23e9432e3c79eac1ec` | STM32 32.2.3 / E73 0.5.1 的 USB/BLE 短时采集与打标 | 历史结果不能验证当前 pin；版本、事件数与边界见 [TRIGGER](TRIGGER.md) |
 
 当前源码的长时采集、掉线、LOFF 关闭及 Linux/macOS 实机验收仍需单独完成。安装产物的绑定版本 0.2.1 不能唯一标识 SDK；可用 `info = omnibci.Board.version()` 后检查 `info.sdk_revision`。旧 ZIP 可能没有该字段。
@@ -117,7 +119,7 @@ STM32 的 E73 BLE 路径要求实际 TX/RX 均为 2M、MTU 至少 153，并运�
 
 ### STM32 配置
 
-字段为数值 `mode`（0 both_bias、1 eeg、2 no_bias、3 shorted、4 test）、`enabled_mask`、`bias_mask`、`loff_mask` 和 32 个 `gains`。三个掩码均为 0–4294967295 的 JSON 整数，bit 0 对应 CH1；`bias_mask` 和 `loff_mask` 必须是 `enabled_mask` 的子集，`loff_mask` 只允许在模式 0–2 下非零。增益允许 1、2、4、6、8、12、24。STM32 固定 250 Hz 和 SRB1，不提供 SRB2 或采样率字段；传错设备类型的配置会抛出 `omnibci:Configuration`。
+字段为数值 `mode`（0 both_bias、1 eeg、2 no_bias、3 shorted、4 test）、`enabled_mask`、`bias_mask`、`loff_mask` 和 32 个 `gains`，以及可选的 `sample_rate_hz`（250、500 或 1000，默认 250）。三个掩码均为 0–4294967295 的 JSON 整数，bit 0 对应 CH1；`bias_mask` 和 `loff_mask` 必须是 `enabled_mask` 的子集，`loff_mask` 只允许在模式 0–2 下非零。增益允许 1、2、4、6、8、12、24。STM32 固定 SRB1，不提供 SRB2 字段；传错设备类型的配置会抛出 `omnibci:Configuration`。
 
 只在停采时配置并等待 STM32 执行回执。`loff_mask` 是导联脱落激励配置，不是阻抗数值 API。关闭设备时，若 `loff_mask` 非零，`close` 会先停采并提交 `loff_mask=0`，只有 SDK 确认后才成功返回；若停止或关闭 LOFF 无法确认，会抛出 `omnibci:Device`，此时不得假定电极激励已关闭。Disconnect 停止失败时会在有限宽限期后升级为 Shutdown 尽力清理，清理失败同样会报告。`delete` 会抑制这些清理错误，需要观察时请显式调用 `close`。
 

@@ -18,9 +18,10 @@
 %   Run omnibci.selftest after adding the package's parent matlab folder
 %   to the MATLAB path. Use help omnibci.Board.connect for connection
 %   syntax and help omnibci.Board.read for sample fields and units.
-%   STM32 uses fixed 250 Hz and SRB1, and its status matrix contains the
-%   raw 12 ADS1299 status bytes transmitted with each V3 frame. See README
-%   and TRIGGER.md for supported paths and validation scope.
+%   STM32 uses fixed SRB1 and supports 250, 500 or 1000 Hz sampling, and its
+%   status matrix contains the raw 12 ADS1299 status bytes transmitted with
+%   each V3 frame. See README and TRIGGER.md for supported paths and validation
+%   scope.
 %
 %   See also omnibci.Board, omnibci.Board.readTriggers,
 %       omnibci.TriggerController, omnibci.decodeFrames,

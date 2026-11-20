@@ -30,6 +30,6 @@ delete(board);
 clear cleanup
 clear mex
 versions = omnibci.Board.version();
-assert(strcmp(versions.sdk, '0.3.1'));
+assert(strcmp(versions.sdk, '0.5.1'));
 fprintf('%s BLE acquisition and immediate MEX clear passed.\n', deviceType);
 end
