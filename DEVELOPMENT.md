@@ -2,9 +2,9 @@
 
 ## 构建
 
-当前源码已在 Windows MATLAB R2023a 构建；STM32 32 导 USB/BLE、打标器发送及硬件事件读取的短时实机验证使用旧 SDK 固定提交，详见 TRIGGER.md。本次 SDK 0.3.1 的 USB 采集验证见下方 SDK 升级验证。旧发布包仍仅含 ESP32 八导功能。
+当前源码已在 Windows MATLAB R2023a 构建并完成[离线验证](#验证)。旧发布包仅含 ESP32 八导功能。
 
-需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `1f1cae5929b448e66c48794dd24348879426ac95`（`omnibci-sdk` 0.5.1），并启用 `esp32`、`e73-ble` 与 `trigger` feature；绑定自身不提升版本号。
+需要 MATLAB、Rust stable 和本机编译工具链。Rust 直接链接 MATLAB 的 MEX 库，无需 Python 或单独的 C++ MEX 编译器。SDK 由 Git 子模块固定提交 `c5be885d801611ca82d093ea43baaf47e5790910`（`omnibci-sdk` 0.5.1），并启用 `esp32`、`e73-ble` 与 `trigger` feature；绑定自身不提升版本号。
 
 ```sh
 git clone --recurse-submodules https://github.com/Omni-Intel/omnibci-matlab.git
@@ -30,7 +30,9 @@ test_stm32_offline
 
 ## 验证
 
-本机已执行 Rust 构建、测试、Clippy 及 MATLAB 离线测试；实机边界见 TRIGGER.md。在仓库根目录运行 Rust 检查和构建：
+当前 SDK 0.5.1（`c5be885`）的 MEX 已针对 Windows MATLAB R2023a 重新构建。9 项 Rust 单元测试、严格 Clippy 以及 MATLAB 的 `test_offline`、`test_stm32_offline`、`test_trigger_controller` 和 `test_trigger_timing` 均通过。本轮验证未连接设备。
+
+在仓库根目录运行 Rust 检查和构建：
 
 ```sh
 cargo test --locked
@@ -52,7 +54,7 @@ test_hardware("usb")  % COM8；使用其他端口时修改 tests/test_hardware.m
 test_hardware("ble")  % 扫描名为 OmniBCI 的 ESP32 设备
 ```
 
-`test_hardware` 只覆盖原有 ESP32 八导路径，测试回写当前配置、连续读取 3 秒，检查数据形状、数量和停止后的状态。旧发布包在 Windows R2023a 的 ESP32 USB/BLE 短时采集曾通过；这不验证本源码适配，也不验证 STM32。STM32 32 导 USB/BLE 与打标的短时实机验证使用旧 SDK 固定提交，详见 TRIGGER.md；当前 SDK 的 USB 采集结果见下方。长时稳定性、掉线恢复、LOFF 关闭和 Linux/macOS 实机验收仍未完成。
+`test_hardware` 只覆盖原有 ESP32 八导路径，测试回写当前配置、连续读取 3 秒，检查数据形状、数量和停止后的状态。旧发布包曾在 Windows R2023a 通过 ESP32 USB/BLE 短时采集。SDK 0.3.1（`54fbad4`）的 ESP32/STM32 USB 和 BLE 短时采集记录见[下方历史验证](#sdk-升级验证)，更早的 STM32 打标记录见 [TRIGGER](TRIGGER.md#validation-scope)。长时稳定性、掉线恢复、LOFF 关闭和 Linux/macOS 实机验收仍未完成。
 
 ## SDK 升级验证
 
@@ -60,7 +62,7 @@ test_hardware("ble")  % 扫描名为 OmniBCI 的 ESP32 设备
 
 Windows R2023a MEX 重新构建成功；27 个原生 Rust 测试、`cargo fmt --check` 与严格 Clippy 通过。重新构建后 `test_offline`、`test_stm32_offline`、`test_trigger_controller` 和 `test_trigger_timing` 通过，运行时版本为 SDK 0.3.1，revision 与子模块一致。独立进程的 `test_installation` 通过；Windows ZIP 构建后解压到独立目录，包内 MEX 的 selftest 与版本核对通过。固定 SDK 的 176 个单元测试和 10 个集成测试通过。
 
-本次 MEX 在 COM25 STM32 32.3.0 USB 32 导与 COM8 ESP32 dual-stack_v0.25.4 USB 8 导分别完成连接、配置确认、至少 250 个样本读取、通道形状检查、停止和关闭；STM32 同时检查每样本 12 字节状态。另外，ESP32 0.26.1（44:B1:76:47:32:7A）和 STM32 32.3.0 / E73 0.6.0（CD:FB:E9:DC:82:6E）的 BLE 采集与立即清除 MEX 测试通过，进程正常退出。该短时验证不覆盖阻抗激励、触发器、掉线恢复或长时稳定性，也不代表 Linux/macOS 验收。旧 SDK 的触发测试结果保留在 TRIGGER.md。
+SDK 0.3.1 的 MEX 在 COM25 STM32 32.3.0 USB 32 导与 COM8 ESP32 dual-stack_v0.25.4 USB 8 导分别完成连接、配置确认、至少 250 个样本读取、通道形状检查、停止和关闭；STM32 同时检查每样本 12 字节状态。另外，ESP32 0.26.1（44:B1:76:47:32:7A）和 STM32 32.3.0 / E73 0.6.0（CD:FB:E9:DC:82:6E）的 BLE 采集与立即清除 MEX 测试通过，进程正常退出。该短时验证不覆盖阻抗激励、触发器、掉线恢复或长时稳定性，也不代表 Linux/macOS 验收。旧 SDK 的触发测试结果保留在 TRIGGER.md。
 
 ## Serial trigger dispatch
 
@@ -91,5 +93,3 @@ STM32/E73 faults with possible excitation now attempt a confirmed stop followed 
 ## Shared managed-session migration
 
 STM32/E73 ownership now comes from `omnibci_sdk::session::Stm32Device`; the binding re-exports it and converts typed snapshots to MATLAB JSON. The 18 device-state regressions formerly in this binding are retained in SDK tests. The registry disposal regression remains here and uses a simulated SDK driver to verify that failed close still removes the handle.
-
-Validation for this pin: 9 Rust tests, strict all-target clippy, MEX rebuild in Windows MATLAB R2023a, and `test_offline`, `test_stm32_offline`, `test_trigger_controller`, `test_trigger_timing`. No devices were opened. Earlier hardware records apply only to their stated SDK revisions.

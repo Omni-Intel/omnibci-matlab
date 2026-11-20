@@ -35,7 +35,9 @@ assert(board.DeviceType == "stm32");
 disp(board.snapshot());
 disp(board.getConfig());
 
-% STM32 is fixed to 250 Hz and SRB1; configure only while Ready.
+% STM32 uses SRB1 and defaults to 250 Hz. With compatible firmware, read
+% the configuration with board.getConfig(), set sample_rate_hz to 500 or
+% 1000, and apply it with board.configure() while Ready.
 board.start();
 for k = 1:10
     batch = board.read(2);
