@@ -14,7 +14,7 @@
 | 迁移前源码，SDK `54fbad405c05bfef813f7acb323e5f0c73153092` | Windows R2023a MEX 构建、Rust 与 MATLAB 离线检查、USB/BLE 8/32 导短时采集及 Windows MEX 卸载回归 | 触发器和长时运行未重测，详见 [开发验证](DEVELOPMENT.md#sdk-升级验证) |
 | 旧 SDK `aa9ab512ecf6243646fbbb23e9432e3c79eac1ec` | STM32 32.2.3 / E73 0.5.1 的 USB/BLE 短时采集与打标 | 历史结果不能验证当前 pin；版本、事件数与边界见 [TRIGGER](TRIGGER.md) |
 
-当前源码的长时采集、掉线、LOFF 关闭及 Linux/macOS 实机验收仍需单独完成。安装产物的绑定版本 0.2.1 不能唯一标识 SDK；可用 `info = omnibci.Board.version()` 后检查 `info.sdk_revision`。旧 ZIP 可能没有该字段。
+当前源码的长时采集、掉线、LOFF 关闭及 Linux/macOS 实机验收仍需单独完成。当前绑定版本为 0.3.0。运行 `info = omnibci.Board.version()` 可查看绑定版本 `info.binding` 和 Rust SDK 提交 `info.sdk_revision`。旧 ZIP 可能缺少 `sdk_revision`。
 
 ## 安装
 
